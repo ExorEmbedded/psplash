@@ -22,6 +22,7 @@
 #include "psplash-poky-img.h"
 #include "psplash-bar-img.h"
 #include "radeon-font.h"
+#include "customizations.h"
 
 #define MSG ""
 
@@ -266,6 +267,9 @@ main (int argc, char** argv)
   /* Clear the background with #ecece1 */
   psplash_fb_draw_rect (fb, 0, 0, fb->width, fb->height,
                         PSPLASH_BACKGROUND_COLOR);
+			
+  if(-1 == psplash_draw_custom_splashimage(fb))
+  {
 
   /* Draw the Poky logo  */
   psplash_fb_draw_image (fb, 
@@ -284,6 +288,7 @@ main (int argc, char** argv)
 			 BAR_IMG_HEIGHT,
 			 BAR_IMG_BYTES_PER_PIXEL,
 			 BAR_IMG_RLE_PIXEL_DATA);
+  }
 
   psplash_draw_progress (fb, 0);
 
