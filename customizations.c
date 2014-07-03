@@ -173,6 +173,7 @@ int psplash_draw_custom_splashimage(PSplashFB *fb)
     splashpartition = DEFAULT_SPLASHPARTITION;
   
   // Mount the splash partition 
+  char umount_cmd[] = "umount "PATHTOSPLASH; 
   char mkdir_cmd[] = "mkdir "PATHTOSPLASH; 
   systemcmd(mkdir_cmd);
   
@@ -181,7 +182,6 @@ int psplash_draw_custom_splashimage(PSplashFB *fb)
   mount_cmd[MAXPATHLENGTH/2] = 0;
   strcat(mount_cmd, " ");
   strcat(mount_cmd, PATHTOSPLASH);
-  fprintf(stderr,"-> %s \n", mount_cmd);
   systemcmd(mount_cmd);
   
   //Try to open the splash file
@@ -191,7 +191,7 @@ int psplash_draw_custom_splashimage(PSplashFB *fb)
   if((fp = fopen(splashfile, "rb"))==NULL)
   {
     fprintf(stderr,"psplash: cannot open splashimage file -> %s \n",splashfile);
-    return -1;
+    goto error;
   }
   
   // Gets the header of the SPLASH image and calculates the dimensions of the stored image. performs sanity checks
@@ -261,11 +261,16 @@ int psplash_draw_custom_splashimage(PSplashFB *fb)
   
   free(stride);
   fclose(fp);
+  // UnMount the splash partition 
+  systemcmd(umount_cmd);
+  
   return 0;
 
 error:  
   if(fp)
     fclose(fp);
+  // UnMount the splash partition 
+  systemcmd(umount_cmd);
   
   return -1;
 }
