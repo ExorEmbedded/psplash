@@ -19,6 +19,8 @@
 #include "psplash.h"
 #include "psplash-fb.h"
 #include "customizations.h"
+#include <linux/i2c-dev.h>
+#include <dirent.h> 
 
 #define MAXPATHLENGTH 200
 
@@ -29,6 +31,10 @@
 #define DEFAULT_SPLASHPARTITION          "/dev/mmcblk1p1"
 #define PATHTOSPLASH                     "/mnt/.splashimage"
 #define SPLASHFILENAME                   "/splashimage.bin"
+
+#define SEEPROM_I2C_ADDRESS   0x54
+#define BLDIMM_POS            128
+#define BRIGHTNESSDEVICE                 "/sys/class/backlight/"
 
 /***********************************************************************************************************
  STATIC HELPER FUNCTIONS
@@ -97,11 +103,59 @@ static int systemcmd(const char* cmd)
     return -1;		// The executed command did not terminate properly 
 }
 
-/***********************************************************************************************************
-Drawing the custom splashimage from splashimage.bin file
 
-NOTE: In order to speed up loading time, it is nedeed that both framebuffer and splashimage are in RGB565
-      format.
+// Helper function to read the brightness value from SEEPROM.
+// A value in the range 0-255 is returned 
+// NOTE: 0 means min. brightness, not backlight off.
+// In case of error, 255 is returned, to be on the safe side.
+static int get_brightness_from_seeprom()
+{
+  //1: Here we open the SEEPROM, which is supposed to be connected on the i2c-0 bus.
+  int fd;
+  
+  fd = open("/dev/i2c-0", O_RDWR);
+  if(fd <= 0)
+  {
+    fprintf(stderr, "pasplash: Error eeprom_open: %s\n", strerror(errno));
+    return 255;
+  }
+  
+  // set seeprom slave address
+  if(ioctl(fd, I2C_SLAVE, SEEPROM_I2C_ADDRESS) < 0)
+  {
+    fprintf(stderr, "pasplash: Error eeprom_open: %s\n", strerror(errno));
+    return 255;
+  }
+  
+  //2: Now read the brightness value from the corresponding offset
+  char buf;
+  unsigned char mem_addr = BLDIMM_POS;
+  write(fd, &mem_addr, 1);
+  usleep(10);
+  read(fd,((void*)&buf),1);
+
+  //3: Close and return value
+  close(fd);
+  return (((int)buf) & 0xff) ;
+}
+
+
+//Sets the brightness value as desired (without saving to i2c SEEPROM)
+static int SetBrightness(char* brightnessdevice, int* pval)
+{
+  char strval[50];
+  
+  sprintf (strval,"%d", *pval);
+  sysfs_write(brightnessdevice,"brightness",strval);
+  return 0;
+}
+
+
+/***********************************************************************************************************
+ Drawing the custom splashimage from splashimage.bin file
+
+ NOTE: In order to speed up loading time, it is nedeed that both framebuffer and splashimage are in RGB565
+       format.
 ***********************************************************************************************************/
 int psplash_draw_custom_splashimage(PSplashFB *fb)
 {
@@ -214,4 +268,68 @@ error:
     fclose(fp);
   
   return -1;
+}
+
+
+/***********************************************************************************************************
+ Updating the backlight brightness value with the one stored in I2C SEEPROM
+
+ NOTE: Scaling is done to properly map the range [0..255] of the I2C SEEPROM stored value with the range 
+       [1..max_brightness], which is the available dynamic range for the backlight driver.
+ ***********************************************************************************************************/
+void UpdateBrightness()
+{
+  int max_brightness;
+  int target_brightness;
+  
+  char strval[5]={0,0,0,0,0};
+  char brightnessdevice[MAXPATHLENGTH] = BRIGHTNESSDEVICE;
+  
+  // Get the full path for accessing the backlight driver: we should have an additonal subdir to be appended to the hardcoded path
+  DIR           *d;
+  struct dirent *dir;
+  d = opendir(BRIGHTNESSDEVICE);
+  if (d)
+  {
+    while ((dir = readdir(d)) != NULL)
+    {
+      if(dir->d_name[0] != '.')
+      {
+	strcat(brightnessdevice, dir->d_name);
+	strcat(brightnessdevice,"/");
+	break;
+      }
+    }
+    closedir(d);
+  }
+  
+  // Read the max_brightness value for the backlight driver and perform sanity check
+  sysfs_read(brightnessdevice,"max_brightness",strval,3);
+  max_brightness=atoi(strval);
+  
+  if((max_brightness < 1) || (max_brightness > 255))
+    max_brightness = 100;
+  
+  // Read the target brightness from SEEPROM and perform scaling to suit the dynamic range of the backlight driver
+  target_brightness = get_brightness_from_seeprom();
+  
+  target_brightness = 1 + (target_brightness * (max_brightness) - target_brightness / 2) / 255;
+  
+  if(target_brightness > max_brightness)
+    target_brightness = max_brightness;
+  
+  if(target_brightness < 1)
+    target_brightness = 1;
+    
+  // Transition loop to set the actual brightness value
+  int usdelay = 300000 / target_brightness;
+  int i;
+  
+  for(i=1; i < target_brightness; i++)
+  {
+    SetBrightness(brightnessdevice, & i);
+    usleep(usdelay);
+  }
+  
+  SetBrightness(brightnessdevice, &target_brightness);
 }

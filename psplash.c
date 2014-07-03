@@ -293,6 +293,8 @@ main (int argc, char** argv)
   psplash_draw_progress (fb, 0);
 
   psplash_draw_msg (fb, MSG);
+  
+  UpdateBrightness();
 
   psplash_main (fb, pipe_fd, 0);
 

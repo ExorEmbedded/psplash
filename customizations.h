@@ -20,6 +20,7 @@
 #define _HAVE_CUSTOMIZATIONS_H
 
 int psplash_draw_custom_splashimage(PSplashFB *fb);
+void UpdateBrightness();
 
 
 #endif
