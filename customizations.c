@@ -32,9 +32,12 @@
 #define PATHTOSPLASH                     "/mnt/.splashimage"
 #define SPLASHFILENAME                   "/splashimage.bin"
 
-#define SEEPROM_I2C_ADDRESS   0x54
-#define BLDIMM_POS            128
 #define BRIGHTNESSDEVICE                 "/sys/class/backlight/"
+
+#define SEEPROM_I2C_ADDRESS              "0-0054"
+#define SEEPROM_I2C_BUS                  "i2c-0"
+#define I2CSEEPROMDEVICE                 "/sys/class/i2c-dev/"SEEPROM_I2C_BUS"/device/"SEEPROM_I2C_ADDRESS"/eeprom"
+#define BLDIMM_POS                       128
 
 /***********************************************************************************************************
  STATIC HELPER FUNCTIONS
@@ -111,31 +114,22 @@ static int systemcmd(const char* cmd)
 static int get_brightness_from_seeprom()
 {
   //1: Here we open the SEEPROM, which is supposed to be connected on the i2c-0 bus.
-  int fd;
-  
-  fd = open("/dev/i2c-0", O_RDWR);
-  if(fd <= 0)
+  FILE* fp;
+  if((fp = fopen(I2CSEEPROMDEVICE, "rb"))==NULL)
   {
-    fprintf(stderr, "pasplash: Error eeprom_open: %s\n", strerror(errno));
-    return 255;
-  }
-  
-  // set seeprom slave address
-  if(ioctl(fd, I2C_SLAVE, SEEPROM_I2C_ADDRESS) < 0)
-  {
-    fprintf(stderr, "pasplash: Error eeprom_open: %s\n", strerror(errno));
+    fprintf(stderr, "pasplash: Error eeprom_open: dev= %s err=%s\n", I2CSEEPROMDEVICE, strerror(errno));
     return 255;
   }
   
   //2: Now read the brightness value from the corresponding offset
-  char buf;
-  unsigned char mem_addr = BLDIMM_POS;
-  write(fd, &mem_addr, 1);
-  usleep(10);
-  read(fd,((void*)&buf),1);
+  char buf = 255;
+  
+  fseek (fp, BLDIMM_POS, SEEK_SET);
+  if(1 !=fread(&buf, 1, 1, fp))
+    fprintf(stderr, "pasplash: Error reading the eeprom: err=%s\n", strerror(errno));
 
   //3: Close and return value
-  close(fd);
+  fclose(fp);
   return (((int)buf) & 0xff) ;
 }
 
