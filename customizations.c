@@ -327,7 +327,7 @@ void UpdateBrightness()
     target_brightness = 1;
     
   // Transition loop to set the actual brightness value
-  int usdelay = 300000 / target_brightness;
+  int usdelay = 1000000 / target_brightness;
   int i;
   
   for(i=1; i < target_brightness; i++)
