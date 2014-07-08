@@ -461,9 +461,9 @@ void TapTap_Progress(PSplashFB *fb, int taptap)
   for(i=0; i<TAPTAP_TH; i++)
   {
     if(i<taptap)
-      strcat(msg,"+");
+      strcat(msg,"#");
     else
-      strcat(msg,"-");
+      strcat(msg,".");
   }
   
   // Draw the string

@@ -24,8 +24,6 @@
 #include "radeon-font.h"
 #include "customizations.h"
 
-#define MSG ""
-
 void
 psplash_exit (int signum)
 {
@@ -47,14 +45,14 @@ psplash_draw_msg (PSplashFB *fb, const char *msg)
 
   psplash_fb_draw_rect (fb, 
 			0, 
-			5, 
+			10, 
 			fb->width,
-			h,
-			PSPLASH_BACKGROUND_COLOR);
+			h+10,
+			PSPLASH_TEXTBK_COLOR);
 
   psplash_fb_draw_text (fb,
 			(fb->width-w)/2, 
-			5,
+			15,
 			PSPLASH_TEXT_COLOR,
 			&radeon_font,
 			msg);
@@ -135,8 +133,8 @@ psplash_main (PSplashFB *fb, int pipe_fd, int touch_fd)
   struct timeval tv;
   char          *end;
   char           command[2048];
-  volatile int   taptap=0;
-  volatile int   laststatus=0;
+  int            taptap=0;
+  int            laststatus=0;
 
   tv.tv_sec = 0;
   tv.tv_usec = 200000;
@@ -306,8 +304,6 @@ main (int argc, char** argv)
 
   psplash_draw_progress (fb, 0);
 
-  psplash_draw_msg (fb, MSG);
-  
   UpdateBrightness();
 
   touch_fd = Touch_open();
