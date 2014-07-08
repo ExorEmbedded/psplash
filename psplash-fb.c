@@ -468,6 +468,9 @@ psplash_fb_text_size (PSplashFB          *fb,
 
   *width  = (w > mw) ? w : mw;
   *height = (h == 0) ? font->height : h;
+  
+  *width = (*width) << FONT_SCALE;
+  *height = (*height) << FONT_SCALE;
 }
 
 void
@@ -485,7 +488,8 @@ psplash_fb_draw_text (PSplashFB         *fb,
   wchar_t wc;
 
   n = strlen (text);
-  h = font->height;
+  h = font->height; 
+  h = h << FONT_SCALE;
   dx = dy = 0;
 
   mbtowc (0, 0, 0);
@@ -501,20 +505,24 @@ psplash_fb_draw_text (PSplashFB         *fb,
 	}
 
       w = psplash_font_glyph (font, wc, &glyph);
+      w = w << FONT_SCALE;
 
       if (glyph == NULL)
 	continue;
 
       for (cy = 0; cy < h; cy++)
 	{
-	  u_int32_t g = *glyph++;
+	  u_int32_t g = *glyph;
+	  
+	  if(((cy+1) >> FONT_SCALE) > (cy >> FONT_SCALE))
+	    glyph++;
 
 	  for (cx = 0; cx < w; cx++)
 	    {
 	      if (g & 0x80000000)
-		psplash_fb_plot_pixel (fb, x+dx+cx, y+dy+cy,
-				       red, green, blue);
-	      g <<= 1;
+		psplash_fb_plot_pixel (fb, x+dx+cx, y+dy+cy, red, green, blue);
+	      if(((cx+1) >> FONT_SCALE) > (cx >> FONT_SCALE))
+		g <<= 1;
 	    }
 	}
 

@@ -19,8 +19,14 @@
 #ifndef _HAVE_CUSTOMIZATIONS_H
 #define _HAVE_CUSTOMIZATIONS_H
 
+#define TAPTAP_THLO 3
+#define TAPTAP_TH   10
+
 int psplash_draw_custom_splashimage(PSplashFB *fb);
 void UpdateBrightness();
-
+int Touch_handler(int touch_fd, int* taptap, int* laststatus);
+void Touch_close(int touch_fd);
+int Touch_open();
+void TapTap_Progress(PSplashFB *fb, int taptap);
 
 #endif

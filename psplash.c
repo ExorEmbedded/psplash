@@ -47,14 +47,14 @@ psplash_draw_msg (PSplashFB *fb, const char *msg)
 
   psplash_fb_draw_rect (fb, 
 			0, 
-			fb->height - (fb->height/6) - h, 
+			5, 
 			fb->width,
 			h,
 			PSPLASH_BACKGROUND_COLOR);
 
   psplash_fb_draw_text (fb,
 			(fb->width-w)/2, 
-			fb->height - (fb->height/6) - h,
+			5,
 			PSPLASH_TEXT_COLOR,
 			&radeon_font,
 			msg);
@@ -127,7 +127,7 @@ parse_command (PSplashFB *fb, char *string, int length)
 }
 
 void 
-psplash_main (PSplashFB *fb, int pipe_fd, int timeout) 
+psplash_main (PSplashFB *fb, int pipe_fd, int touch_fd) 
 {
   int            err;
   ssize_t        length = 0;
@@ -135,9 +135,11 @@ psplash_main (PSplashFB *fb, int pipe_fd, int timeout)
   struct timeval tv;
   char          *end;
   char           command[2048];
+  volatile int   taptap=0;
+  volatile int   laststatus=0;
 
-  tv.tv_sec = timeout;
-  tv.tv_usec = 0;
+  tv.tv_sec = 0;
+  tv.tv_usec = 200000;
 
   FD_ZERO(&descriptors);
   FD_SET(pipe_fd, &descriptors);
@@ -146,17 +148,29 @@ psplash_main (PSplashFB *fb, int pipe_fd, int timeout)
 
   while (1) 
     {
-      if (timeout != 0) 
-	err = select(pipe_fd+1, &descriptors, NULL, NULL, &tv);
-      else
-	err = select(pipe_fd+1, &descriptors, NULL, NULL, NULL);
+    startloop:
+      // Handles tap-tap touchscreen sequence
+      if(Touch_handler(touch_fd, &taptap, &laststatus))
+      {
+	printf("taptap=%d \n",taptap); //!!!
+	TapTap_Progress(fb, taptap);
+      }
+
+      err = select(pipe_fd+1, &descriptors, NULL, NULL, &tv);
+      
+      printf("err=%d errno=%d \n",err,errno); //!!!
       
       if (err <= 0) 
 	{
-	  /*
-	  if (errno == EINTR)
-	    continue;
-	  */
+	  if((err==0))
+	  { // This is the select(9 timeout case, needed only to handle the tap-tap sequence, so repeat the loop.
+	    tv.tv_sec = 0;
+	    tv.tv_usec = 200000;
+	    
+	    FD_ZERO(&descriptors);
+	    FD_SET(pipe_fd,&descriptors);
+	    goto startloop;
+	  }
 	  return;
 	}
       
@@ -184,12 +198,11 @@ psplash_main (PSplashFB *fb, int pipe_fd, int timeout)
 	  length = 0;
 	} 
 
-
     out:
       end = &command[length];
     
-      tv.tv_sec = timeout;
-      tv.tv_usec = 0;
+      tv.tv_sec = 0;
+      tv.tv_usec = 200000;
       
       FD_ZERO(&descriptors);
       FD_SET(pipe_fd,&descriptors);
@@ -205,6 +218,7 @@ main (int argc, char** argv)
   int        pipe_fd, i = 0, angle = 0, ret = 0;
   PSplashFB *fb;
   bool       disable_console_switch = FALSE;
+  int        touch_fd;
   
   signal(SIGHUP, psplash_exit);
   signal(SIGINT, psplash_exit);
@@ -296,8 +310,9 @@ main (int argc, char** argv)
   
   UpdateBrightness();
 
-  psplash_main (fb, pipe_fd, 0);
-
+  touch_fd = Touch_open();
+  psplash_main (fb, pipe_fd, touch_fd); 
+  Touch_close(touch_fd);
 
   psplash_fb_destroy (fb);
 

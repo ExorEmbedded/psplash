@@ -21,6 +21,7 @@
 #include "customizations.h"
 #include <linux/i2c-dev.h>
 #include <dirent.h> 
+#include <linux/input.h>
 
 #define MAXPATHLENGTH 200
 
@@ -39,6 +40,7 @@
 #define I2CSEEPROMDEVICE                 "/sys/class/i2c-dev/"SEEPROM_I2C_BUS"/device/"SEEPROM_I2C_ADDRESS"/eeprom"
 #define BLDIMM_POS                       128
 
+#define DEFAULT_TOUCH_EVENT              "/dev/input/event0"
 /***********************************************************************************************************
  STATIC HELPER FUNCTIONS
  ***********************************************************************************************************/
@@ -117,7 +119,7 @@ static int get_brightness_from_seeprom()
   FILE* fp;
   if((fp = fopen(I2CSEEPROMDEVICE, "rb"))==NULL)
   {
-    fprintf(stderr, "pasplash: Error eeprom_open: dev= %s err=%s\n", I2CSEEPROMDEVICE, strerror(errno));
+    fprintf(stderr, "psplash: Error eeprom_open: dev= %s err=%s\n", I2CSEEPROMDEVICE, strerror(errno));
     return 255;
   }
   
@@ -126,7 +128,7 @@ static int get_brightness_from_seeprom()
   
   fseek (fp, BLDIMM_POS, SEEK_SET);
   if(1 !=fread(&buf, 1, 1, fp))
-    fprintf(stderr, "pasplash: Error reading the eeprom: err=%s\n", strerror(errno));
+    fprintf(stderr, "psplash: Error reading the eeprom: err=%s\n", strerror(errno));
 
   //3: Close and return value
   fclose(fp);
@@ -331,4 +333,139 @@ void UpdateBrightness()
   }
   
   SetBrightness(brightnessdevice, &target_brightness);
+}
+
+
+/***********************************************************************************************************
+ Opening the touchscreen event for reading.
+
+ ret = int touch_fd = file descriptor (< 0 if error)
+ 
+ NOTE: The touch event can be defined by the "TSDEVICE" environment var. If TSDEVICE not defined, the
+       default "/dev/input/event0" event is used.
+ ***********************************************************************************************************/
+int Touch_open()
+{
+  int touch_fd = -1;
+  char *tsdevice = NULL;
+
+  if( (tsdevice = getenv("TSDEVICE")) != NULL ) 
+  {
+    touch_fd = open(tsdevice,O_RDONLY | O_NONBLOCK);
+  } 
+  else 
+  {
+    touch_fd = open(DEFAULT_TOUCH_EVENT,O_RDONLY | O_NONBLOCK);
+  }
+  
+  if(touch_fd < 0)
+    fprintf(stderr, "psplash: Error opening the touch event: err=%s\n", strerror(errno));
+  
+  return touch_fd;
+}
+
+
+/***********************************************************************************************************
+ Closing the touchscreen file descriptor.
+ ***********************************************************************************************************/
+void Touch_close(int touch_fd)
+{
+  if(touch_fd < 0)
+    return;
+  
+  close(touch_fd);
+}
+
+
+/***********************************************************************************************************
+ Touch handler: counts the number of tap-tap events detected and gets the last detected touch status.
+ 
+ int  touch_fd   (file descriptor to touchscreen event)
+ int* taptap     (taptap detected number)
+ int* laststatus (0=up, 1=pressed)
+ 
+ int ret = number of detected UP/DOWN events (0=nothing happened)
+ ***********************************************************************************************************/
+int Touch_handler(int touch_fd, int* taptap, int* laststatus)
+{
+  struct input_event ev;
+  fd_set fdset;
+  struct timeval tv;
+  int count = 0;
+  int nfds;
+  int ret;
+  
+  if(touch_fd < 0)
+    return 0;
+  
+  while (1) 
+  {
+    FD_ZERO(&fdset);
+    FD_SET(touch_fd, &fdset);
+    
+    tv.tv_sec = 0;
+    tv.tv_usec = 0;
+    
+    nfds = select(touch_fd + 1, &fdset, NULL, NULL, &tv);
+    if (nfds == 0) 
+      break;
+    
+    ret = read(touch_fd, &ev, sizeof(struct input_event));
+    if (ret < (int)sizeof(struct input_event)) 
+    {
+      break;
+    }
+    
+    if (ev.type == EV_KEY)
+      if((ev.code == BTN_TOUCH) || (ev.code == BTN_LEFT))
+      {
+	if(ev.value == 0)
+	{ //pen UP 
+	  *taptap = *taptap + 1;
+	  *laststatus = 0;
+	  count++;
+	  printf("UP taptap=%d\n",*taptap);
+	}
+	else if(ev.value == 1)
+	{ //pen DW
+	  *laststatus = 1;
+	  count++;
+	  printf("DW \n");
+	}
+      }
+  }
+  
+  return count;
+}
+
+
+/***********************************************************************************************************
+ TapTap_Progress: Updates the tap-tap counting on display, to give a visual feedback to the user
+
+ PSplashFB* fb   (pointer to framebuffer structure)
+ int taptap      (taptap detected number)
+ ***********************************************************************************************************/
+void TapTap_Progress(PSplashFB *fb, int taptap)
+{
+  extern void  psplash_draw_msg (PSplashFB *fb, const char *msg);
+  
+  // Exit in case the actual taptap counter is still too low
+  if(taptap <= TAPTAP_THLO)
+    return;
+
+  printf("TapTap_Progress %d \n",taptap); //!!!
+  // Build a string representing the actual TAP-TAP counter value
+  char msg[MAXPATHLENGTH] = "Tap-tap : ";
+  int i;
+  
+  for(i=0; i<TAPTAP_TH; i++)
+  {
+    if(i<taptap)
+      strcat(msg,"+");
+    else
+      strcat(msg,"-");
+  }
+  
+  // Draw the string
+  psplash_draw_msg (fb, msg);
 }
