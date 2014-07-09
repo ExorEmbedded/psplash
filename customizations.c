@@ -557,7 +557,7 @@ int TapTap_Detected(int touch_fd, PSplashFB *fb, int laststatus)
     if(laststatus != refreshtrigger)
     { //It is time to refresh the printout
       refreshtrigger = laststatus;
-      if(laststatus == 0) 
+      if(laststatus) 
 	sprintf(msg, "** TAP-TAP DETECTED  %d **\n>> RESTART: RECOVERY OS\n   SYSTEM SETTINGS\n",(int)(time/200));
       else
 	sprintf(msg, "** TAP-TAP DETECTED  %d **\n   RESTART: RECOVERY OS\n>> SYSTEM SETTINGS\n",(int)(time/200));
@@ -568,7 +568,7 @@ int TapTap_Detected(int touch_fd, PSplashFB *fb, int laststatus)
   }
   
   // Now, based on the touchscreen laststatus (pressed or not pressed) the proper action will be taken ...
-  if(laststatus == 0)
+  if(laststatus)
   { // In this case we will restart the recovery OS
     sprintf(msg, "** TAP-TAP DETECTED  %d **\n\nRESTARTING: RECOVERY OS ...\n",(int)(time/200));
     psplash_draw_msg (fb, msg);
