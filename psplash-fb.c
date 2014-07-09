@@ -458,8 +458,9 @@ psplash_fb_text_size (PSplashFB          *fb,
       if (*c == '\n')
 	{
 	  if (w > mw)
-	    mw = 0;
+	    mw = w;
 	  h += font->height;
+	  w = 0;
 	  continue;
 	}
 
@@ -491,6 +492,11 @@ psplash_fb_draw_text (PSplashFB         *fb,
   h = font->height; 
   h = h << FONT_SCALE;
   dx = dy = 0;
+  uint8 txtred,txtgreen, txtblue;
+  
+  txtred = red;
+  txtgreen = green;
+  txtblue = blue;
 
   mbtowc (0, 0, 0);
   for (; (k = mbtowc (&wc, c, n)) > 0; c += k, n -= k)
@@ -501,8 +507,19 @@ psplash_fb_draw_text (PSplashFB         *fb,
 	{
 	  dy += h;
 	  dx  = 0;
+	  // Restore default text color for the next row
+	  txtred = red;   
+	  txtgreen = green;
+	  txtblue = blue;
 	  continue;
 	}
+      
+      if(*c == '>')
+      { //Set highlight color (Yellow)
+	txtred = 0xff;   
+	txtgreen = 0xff;
+	txtblue = 0x00;
+      }
 
       w = psplash_font_glyph (font, wc, &glyph);
       w = w << FONT_SCALE;
@@ -520,7 +537,7 @@ psplash_fb_draw_text (PSplashFB         *fb,
 	  for (cx = 0; cx < w; cx++)
 	    {
 	      if (g & 0x80000000)
-		psplash_fb_plot_pixel (fb, x+dx+cx, y+dy+cy, red, green, blue);
+		psplash_fb_plot_pixel (fb, x+dx+cx, y+dy+cy, txtred, txtgreen, txtblue);
 	      if(((cx+1) >> FONT_SCALE) > (cx >> FONT_SCALE))
 		g <<= 1;
 	    }

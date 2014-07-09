@@ -44,7 +44,38 @@
 /***********************************************************************************************************
  STATIC HELPER FUNCTIONS
  ***********************************************************************************************************/
- 
+
+//Helper function to write the synchornization file with the JMloader
+static int SyncJMLauncher(char* msg)
+{
+  char* tmpdir;
+  char fullpath[MAXPATHLENGTH];
+  
+  //Filepath is defined by the TMPDIR env. variable; the default value is /tmp
+  tmpdir = getenv("TMPDIR");
+  if (!tmpdir)
+    tmpdir = "/tmp";
+  
+  //Filename is "taptap"
+  strncpy(fullpath, tmpdir, MAXPATHLENGTH);
+  strncat(fullpath,"/taptap", MAXPATHLENGTH);
+  
+  // Opens the file and write the sync message
+  FILE* fp;
+  if((fp = fopen(fullpath, "w"))==NULL)
+  {
+    fprintf(stderr,"SyncJMLauncher cannot open file -> %s \n",fullpath);
+    return -1;
+  }
+  
+  fprintf(fp,"%s",msg);
+  fflush(fp);
+  fclose(fp);
+  
+  return 0;
+}
+
+
 //Helper function for writing a parameter to sysfs
 static int sysfs_write(char* pathto, char* fname, char* value)
 {
@@ -144,6 +175,14 @@ static int SetBrightness(char* brightnessdevice, int* pval)
   sprintf (strval,"%d", *pval);
   sysfs_write(brightnessdevice,"brightness",strval);
   return 0;
+}
+
+/***********************************************************************************************************
+ Set the bootcounter (in NVRAM) to the specified value
+ ***********************************************************************************************************/
+void setbootcounter(unsigned char val)
+{
+  printf("setbootcounter %d \n",val);
 }
 
 
@@ -424,13 +463,11 @@ int Touch_handler(int touch_fd, int* taptap, int* laststatus)
 	  *taptap = *taptap + 1;
 	  *laststatus = 0;
 	  count++;
-	  printf("UP taptap=%d\n",*taptap);
 	}
 	else if(ev.value == 1)
 	{ //pen DW
 	  *laststatus = 1;
 	  count++;
-	  printf("DW \n");
 	}
       }
   }
@@ -453,7 +490,6 @@ void TapTap_Progress(PSplashFB *fb, int taptap)
   if(taptap <= TAPTAP_THLO)
     return;
 
-  printf("TapTap_Progress %d \n",taptap); //!!!
   // Build a string representing the actual TAP-TAP counter value
   char msg[MAXPATHLENGTH] = "Tap-tap : ";
   int i;
@@ -468,4 +504,73 @@ void TapTap_Progress(PSplashFB *fb, int taptap)
   
   // Draw the string
   psplash_draw_msg (fb, msg);
+}
+
+
+/***********************************************************************************************************
+ TapTap_Detected: Handles the sequence for deciding what to do when TAP-TAP detected.
+
+ PSplashFB* fb   (pointer to framebuffer structure)
+ int laststatus  (last touchscreen status)
+
+ output: int ret (1=exit, 0=continue)
+ ***********************************************************************************************************/
+int TapTap_Detected(int touch_fd, PSplashFB *fb, int laststatus)
+{
+  extern void  psplash_draw_msg (PSplashFB *fb, const char *msg);
+  extern int reboot(int cmd);
+  
+  int refreshtrigger = 0xff;
+  int time; //Time [s/200]
+  char msg[MAXPATHLENGTH];
+  int taptap = 0;
+  
+  // Perform synchronization with the JMlauncher: put it in wait status
+  SyncJMLauncher("wait");
+  
+  // Perform countdown, touch status reading and msg updating, based on touch status (pressed or not pressed)
+  for(time = 1000; time > 0; time -= 50)
+  {
+    if((time%200) == 0)    //refresh printout at least every second
+      refreshtrigger = 0xff;
+    
+    Touch_handler(touch_fd, &taptap, &laststatus);
+    if(laststatus != refreshtrigger)
+    { //It is time to refresh the printout
+      refreshtrigger = laststatus;
+      if(laststatus == 0) 
+	sprintf(msg, "** TAP-TAP DETECTED  %d **\n>> RESTART: RECOVERY OS\n   SYSTEM SETTINGS\n",(int)(time/200));
+      else
+	sprintf(msg, "** TAP-TAP DETECTED  %d **\n   RESTART: RECOVERY OS\n>> SYSTEM SETTINGS\n",(int)(time/200));
+      // Draw the string
+      psplash_draw_msg (fb, msg);
+    }
+    usleep(200000);
+  }
+  
+  // Now, based on the touchscreen laststatus (pressed or not pressed) the proper action will be taken ...
+  if(laststatus == 0)
+  { // In this case we will restart the recovery OS
+    sprintf(msg, "** TAP-TAP DETECTED  %d **\n\nRESTARTING: RECOVERY OS ...\n",(int)(time/200));
+    psplash_draw_msg (fb, msg);
+    usleep(2000000);
+    
+    // The recovery OS is forced to boot by setting the bootcounter over the threshold limit
+    setbootcounter(100); 
+    //Now perform reboot unconditionally (please note the JMloader is still kept into the "wait" status, so it will not try booting anything in the meanwhile)
+    #define LINUX_REBOOT_CMD_RESTART        0x01234567
+    sync();
+    reboot(LINUX_REBOOT_CMD_RESTART);    
+    //We should never get here !!!
+    while(1)
+      usleep(200);
+  }
+  else
+  { // In this case we will inform the JMloader to start the system settings menu by setting the "disable-kiosk" status, then we will normally exit
+    sprintf(msg, "** TAP-TAP DETECTED  %d **\n\nENTERING SYSTEM SETTINGS ...\n",(int)(time/200));
+    psplash_draw_msg (fb, msg);
+    usleep(2000000);
+    SyncJMLauncher("disable-kiosk");
+  }
+  return 0;
 }

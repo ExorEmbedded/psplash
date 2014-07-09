@@ -150,8 +150,12 @@ psplash_main (PSplashFB *fb, int pipe_fd, int touch_fd)
       // Handles tap-tap touchscreen sequence
       if(Touch_handler(touch_fd, &taptap, &laststatus))
       {
-	printf("taptap=%d \n",taptap); //!!!
 	TapTap_Progress(fb, taptap);
+	if(taptap > TAPTAP_TH)
+	{
+	  TapTap_Detected(touch_fd, fb, laststatus);
+	  return;
+	}
       }
 
       err = select(pipe_fd+1, &descriptors, NULL, NULL, &tv);
