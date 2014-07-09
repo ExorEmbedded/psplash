@@ -18,8 +18,6 @@
 #ifndef _HAVE_PSPLASH_FB_H
 #define _HAVE_PSPLASH_FB_H
 
-#define FONT_SCALE 1 //Font scale factor: 0=>1x 1=>2x 2=>4x
-
 enum RGBMode {
     RGB565,
     BGR565,

@@ -24,6 +24,9 @@
 #include "radeon-font.h"
 #include "customizations.h"
 
+//Global variable indicating the font scale factor: 0=>1x 1=>2x 2=>4x
+int FONT_SCALE;
+
 void
 psplash_exit (int signum)
 {
@@ -284,7 +287,13 @@ main (int argc, char** argv)
 	  ret = -1;
 	  goto fb_fail;
   }
-
+  
+  /* Set the font size, based on the display resolution and screen orientation */
+  if(fb->width < USESMALLFONT_TH)
+    FONT_SCALE = 0; // Small fonts (scale = 1x)
+  else
+    FONT_SCALE = 1; // large fonts (scale = 2x)
+    
   /* Clear the background with #ecece1 */
   psplash_fb_draw_rect (fb, 0, 0, fb->width, fb->height,
                         PSPLASH_BACKGROUND_COLOR);

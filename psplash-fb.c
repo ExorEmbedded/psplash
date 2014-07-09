@@ -16,6 +16,9 @@
  */
 #include "psplash.h"
 
+//Global variable indicating the font scale factor: 0=>1x 1=>2x 2=>4x
+extern int FONT_SCALE;
+
 void
 psplash_fb_destroy (PSplashFB *fb)
 {
