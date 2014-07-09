@@ -28,5 +28,6 @@ int Touch_handler(int touch_fd, int* taptap, int* laststatus);
 void Touch_close(int touch_fd);
 int Touch_open();
 void TapTap_Progress(PSplashFB *fb, int taptap);
+int setbootcounter(unsigned char val);
 
 #endif

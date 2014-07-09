@@ -34,6 +34,7 @@
 #define SPLASHFILENAME                   "/splashimage.bin"
 
 #define BRIGHTNESSDEVICE                 "/sys/class/backlight/"
+#define NVRAMDEVICE                      "/sys/class/rtc/rtc0/device/nvram"
 
 #define SEEPROM_I2C_ADDRESS              "0-0054"
 #define SEEPROM_I2C_BUS                  "i2c-0"
@@ -180,9 +181,27 @@ static int SetBrightness(char* brightnessdevice, int* pval)
 /***********************************************************************************************************
  Set the bootcounter (in NVRAM) to the specified value
  ***********************************************************************************************************/
-void setbootcounter(unsigned char val)
+int setbootcounter(unsigned char val)
 {
-  printf("setbootcounter %d \n",val);
+  #define NVRAM_MAGIC 0xbc
+  unsigned char buff[2];
+  
+  buff[0] = NVRAM_MAGIC;
+  buff[1] = val;
+  
+  // Opens the nvram device and updates the bootcounter
+  FILE* fp;
+  if((fp = fopen(NVRAMDEVICE, "w"))==NULL)
+  {
+    fprintf(stderr,"setbootcounter cannot open file -> %s \n",NVRAMDEVICE);
+    return -1;
+  }
+  
+  fwrite(buff,1,2,fp);
+  fflush(fp); //Just in case ... but not really needed
+  fclose(fp);
+  
+  return 0;
 }
 
 

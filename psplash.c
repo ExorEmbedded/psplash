@@ -160,8 +160,6 @@ psplash_main (PSplashFB *fb, int pipe_fd, int touch_fd)
 
       err = select(pipe_fd+1, &descriptors, NULL, NULL, &tv);
       
-      printf("err=%d errno=%d \n",err,errno); //!!!
-      
       if (err <= 0) 
 	{
 	  if((err==0))
@@ -315,6 +313,9 @@ main (int argc, char** argv)
   Touch_close(touch_fd);
 
   psplash_fb_destroy (fb);
+  
+  // Clear the bootcounter
+  setbootcounter(0);
 
  fb_fail:
   unlink(PSPLASH_FIFO);
