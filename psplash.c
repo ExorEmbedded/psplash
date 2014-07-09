@@ -218,7 +218,8 @@ main (int argc, char** argv)
   int        pipe_fd, i = 0, angle = 0, ret = 0;
   PSplashFB *fb;
   bool       disable_console_switch = FALSE;
-  int        touch_fd;
+  int        touch_fd = -1;
+  bool       disable_touch = FALSE;
   
   signal(SIGHUP, psplash_exit);
   signal(SIGINT, psplash_exit);
@@ -238,7 +239,13 @@ main (int argc, char** argv)
 	  angle = atoi(argv[i]);
 	  continue;
 	}
-      
+	
+      if (!strcmp(argv[i],"--notouch"))
+      {
+	disable_touch = TRUE;
+	continue;
+      }
+ 
     fail:
       fprintf(stderr, 
 	      "Usage: %s [-n|--no-console-switch][-a|--angle <0|90|180|270>]\n", 
@@ -307,8 +314,9 @@ main (int argc, char** argv)
   psplash_draw_progress (fb, 0);
 
   UpdateBrightness();
-
-  touch_fd = Touch_open();
+  
+  if(disable_touch == FALSE)
+    touch_fd = Touch_open();
   psplash_main (fb, pipe_fd, touch_fd); 
   Touch_close(touch_fd);
 
