@@ -510,7 +510,7 @@ void TapTap_Progress(PSplashFB *fb, int taptap)
     return;
 
   // Build a string representing the actual TAP-TAP counter value
-  char msg[MAXPATHLENGTH] = "Tap-tap : ";
+  char msg[MAXPATHLENGTH] = "";
   int i;
   
   for(i=0; i<TAPTAP_TH; i++)
@@ -558,9 +558,9 @@ int TapTap_Detected(int touch_fd, PSplashFB *fb, int laststatus)
     { //It is time to refresh the printout
       refreshtrigger = laststatus;
       if(laststatus) 
-	sprintf(msg, "** TAP-TAP DETECTED  %d **\n>> RESTART: RECOVERY OS\n   SYSTEM SETTINGS\n",(int)(time/200));
+	sprintf(msg, "** TAP-TAP DETECTED  %d **\n>> RESTART: CONFIG OS\n   SYSTEM SETTINGS\n",(int)(time/200));
       else
-	sprintf(msg, "** TAP-TAP DETECTED  %d **\n   RESTART: RECOVERY OS\n>> SYSTEM SETTINGS\n",(int)(time/200));
+	sprintf(msg, "** TAP-TAP DETECTED  %d **\n   RESTART: CONFIG OS\n>> SYSTEM SETTINGS\n",(int)(time/200));
       // Draw the string
       psplash_draw_msg (fb, msg);
     }
@@ -570,7 +570,7 @@ int TapTap_Detected(int touch_fd, PSplashFB *fb, int laststatus)
   // Now, based on the touchscreen laststatus (pressed or not pressed) the proper action will be taken ...
   if(laststatus)
   { // In this case we will restart the recovery OS
-    sprintf(msg, "** TAP-TAP DETECTED  %d **\n\nRESTARTING: RECOVERY OS ...\n",(int)(time/200));
+    sprintf(msg, "** TAP-TAP DETECTED  %d **\n\nRESTARTING: CONFIG OS ...\n",(int)(time/200));
     psplash_draw_msg (fb, msg);
     usleep(2000000);
     
@@ -585,11 +585,32 @@ int TapTap_Detected(int touch_fd, PSplashFB *fb, int laststatus)
       usleep(200);
   }
   else
-  { // In this case we will inform the JMloader to start the system settings menu by setting the "disable-kiosk" status, then we will normally exit
-    sprintf(msg, "** TAP-TAP DETECTED  %d **\n\nENTERING SYSTEM SETTINGS ...\n",(int)(time/200));
-    psplash_draw_msg (fb, msg);
+  { // In this case we will inform the JMloader to start the system settings menu by setting the "disable-kiosk" or "disable-kiosk-tchcalibrate" status, then we will normally exit
+    // Perform countdown, touch status reading and msg updating, based on touch status (pressed or not pressed)
+    for(time = 1000; time >= 0; time -= 50)
+    {
+      if((time%200) == 0)    //refresh printout at least every second
+	refreshtrigger = 0xff;
+      
+      Touch_handler(touch_fd, &taptap, &laststatus);
+      if(laststatus != refreshtrigger)
+      { //It is time to refresh the printout
+	refreshtrigger = laststatus;
+	if(!laststatus) 
+	  sprintf(msg, "** ENTERING SYSTEM SETTINGS ...  %d **\n>> DEFAULT MODE\n   TOUCHSCREEN CALIBRATION\n",(int)(time/200));
+	else
+	  sprintf(msg, "** ENTERING SYSTEM SETTINGS ...  %d **\n   DEFAULT MODE\n>> TOUCHSCREEN CALIBRATION\n",(int)(time/200));
+	// Draw the string
+	psplash_draw_msg (fb, msg);
+      }
+      usleep(200000);
+    }
+    // Perform synchronization with the JMlauncher based on the user's choice
     usleep(2000000);
-    SyncJMLauncher("disable-kiosk");
+    if(!laststatus)
+      SyncJMLauncher("disable-kiosk");
+    else
+      SyncJMLauncher("disable-kiosk-tchcalibrate");
   }
   return 0;
 }
