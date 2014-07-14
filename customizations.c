@@ -22,6 +22,9 @@
 #include <linux/i2c-dev.h>
 #include <dirent.h> 
 #include <linux/input.h>
+#include "settings-img.h"
+#include "configos-img.h"
+#include "calib-img.h"
 
 #define MAXPATHLENGTH 200
 
@@ -45,6 +48,22 @@
 /***********************************************************************************************************
  STATIC HELPER FUNCTIONS
  ***********************************************************************************************************/
+
+//Helper function to show the specified icon
+static void Draw_Icon(PSplashFB *fb, int iconw, int iconh, uint8* data, uint8 bkred, uint8 bkgreen, uint8 bkblue)
+{
+  #define ICONYPOS 100
+  psplash_fb_draw_rect (fb, (fb->width - iconw)/2, ICONYPOS, iconw, iconh, bkred, bkgreen, bkblue);
+  
+  psplash_fb_draw_image (fb, 
+			 (fb->width - iconw)/2, 
+			 ICONYPOS,
+			 iconw,
+			 iconh,
+			 SETTINGS_IMG_BYTES_PER_PIXEL,
+			 data);
+}
+
 
 //Helper function to write the synchornization file with the JMloader
 static int SyncJMLauncher(char* msg)
@@ -558,9 +577,15 @@ int TapTap_Detected(int touch_fd, PSplashFB *fb, int laststatus)
     { //It is time to refresh the printout
       refreshtrigger = laststatus;
       if(laststatus) 
+      {
 	sprintf(msg, "** TAP-TAP DETECTED  %d **\n>> RESTART: CONFIG OS\n   SYSTEM SETTINGS\n",(int)(time/200));
+	Draw_Icon(fb, CONFIGOS_IMG_WIDTH, CONFIGOS_IMG_HEIGHT, CONFIGOS_IMG_RLE_PIXEL_DATA, PSPLASH_TEXTBK_COLOR);
+      }
       else
+      {
 	sprintf(msg, "** TAP-TAP DETECTED  %d **\n   RESTART: CONFIG OS\n>> SYSTEM SETTINGS\n",(int)(time/200));
+	Draw_Icon(fb, SETTINGS_IMG_WIDTH, SETTINGS_IMG_HEIGHT, SETTINGS_IMG_RLE_PIXEL_DATA, PSPLASH_TEXTBK_COLOR);
+      }
       // Draw the string
       psplash_draw_msg (fb, msg);
     }
@@ -572,7 +597,8 @@ int TapTap_Detected(int touch_fd, PSplashFB *fb, int laststatus)
   { // In this case we will restart the recovery OS
     sprintf(msg, "** TAP-TAP DETECTED  %d **\n\nRESTARTING: CONFIG OS ...\n",(int)(time/200));
     psplash_draw_msg (fb, msg);
-    usleep(2000000);
+    Draw_Icon(fb, CONFIGOS_IMG_WIDTH, CONFIGOS_IMG_HEIGHT, CONFIGOS_IMG_RLE_PIXEL_DATA, 0xff, 0xff, 0x00);
+    usleep(3000000);
     
     // The recovery OS is forced to boot by setting the bootcounter over the threshold limit
     setbootcounter(100); 
@@ -585,7 +611,11 @@ int TapTap_Detected(int touch_fd, PSplashFB *fb, int laststatus)
       usleep(200);
   }
   else
-  { // In this case we will inform the JMloader to start the system settings menu by setting the "disable-kiosk" or "disable-kiosk-tchcalibrate" status, then we will normally exit
+  {
+    Draw_Icon(fb, SETTINGS_IMG_WIDTH, SETTINGS_IMG_HEIGHT, SETTINGS_IMG_RLE_PIXEL_DATA, 0xff, 0xff, 0x00);
+    usleep(300000);
+    
+    // In this case we will inform the JMloader to start the system settings menu by setting the "disable-kiosk" or "disable-kiosk-tchcalibrate" status, then we will normally exit
     // Perform countdown, touch status reading and msg updating, based on touch status (pressed or not pressed)
     for(time = 1000; time >= 0; time -= 50)
     {
@@ -597,16 +627,28 @@ int TapTap_Detected(int touch_fd, PSplashFB *fb, int laststatus)
       { //It is time to refresh the printout
 	refreshtrigger = laststatus;
 	if(!laststatus) 
+	{
 	  sprintf(msg, "** ENTERING SYSTEM SETTINGS ...  %d **\n>> DEFAULT MODE\n   TOUCHSCREEN CALIBRATION\n",(int)(time/200));
+	  Draw_Icon(fb, SETTINGS_IMG_WIDTH, SETTINGS_IMG_HEIGHT, SETTINGS_IMG_RLE_PIXEL_DATA, PSPLASH_TEXTBK_COLOR);
+	}
 	else
+	{
 	  sprintf(msg, "** ENTERING SYSTEM SETTINGS ...  %d **\n   DEFAULT MODE\n>> TOUCHSCREEN CALIBRATION\n",(int)(time/200));
+	  Draw_Icon(fb, CALIB_IMG_WIDTH, CALIB_IMG_HEIGHT, CALIB_IMG_RLE_PIXEL_DATA, PSPLASH_TEXTBK_COLOR);
+	}
 	// Draw the string
 	psplash_draw_msg (fb, msg);
       }
       usleep(200000);
     }
+    // highlight icon for the selected option
+    if(!laststatus)
+      Draw_Icon(fb, SETTINGS_IMG_WIDTH, SETTINGS_IMG_HEIGHT, SETTINGS_IMG_RLE_PIXEL_DATA, 0xff, 0xff, 0x00);
+    else
+      Draw_Icon(fb, CALIB_IMG_WIDTH, CALIB_IMG_HEIGHT, CALIB_IMG_RLE_PIXEL_DATA, 0xff, 0xff, 0x00);
+      
     // Perform synchronization with the JMlauncher based on the user's choice
-    usleep(2000000);
+    usleep(3000000);
     if(!laststatus)
       SyncJMLauncher("disable-kiosk");
     else
