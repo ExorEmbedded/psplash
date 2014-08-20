@@ -44,7 +44,10 @@
 #define I2CSEEPROMDEVICE                 "/sys/class/i2c-dev/"SEEPROM_I2C_BUS"/device/"SEEPROM_I2C_ADDRESS"/eeprom"
 #define BLDIMM_POS                       128
 
-#define DEFAULT_TOUCH_EVENT              "/dev/input/event0"
+#define CMDLINEPATH                      "/proc/"
+#define DEFAULT_TOUCH_EVENT0             "/dev/input/event0"
+#define DEFAULT_TOUCH_EVENT1             "/dev/input/event1"
+
 /***********************************************************************************************************
  STATIC HELPER FUNCTIONS
  ***********************************************************************************************************/
@@ -419,12 +422,15 @@ void UpdateBrightness()
  ret = int touch_fd = file descriptor (< 0 if error)
  
  NOTE: The touch event can be defined by the "TSDEVICE" environment var. If TSDEVICE not defined, the
-       default "/dev/input/event0" event is used.
+       default "/dev/input/event0" or  "/dev/input/event1" is used, based on the hw_code (taken from cmdline)
+       hw_code=110 -> "/dev/input/event0" (This is the ECO panel, which uses the CPU touch controller)
+       hw_code=... -> "/dev/input/event1"
  ***********************************************************************************************************/
 int Touch_open()
 {
   int touch_fd = -1;
   char *tsdevice = NULL;
+  char cmdline[MAXPATHLENGTH];
 
   if( (tsdevice = getenv("TSDEVICE")) != NULL ) 
   {
@@ -432,7 +438,12 @@ int Touch_open()
   } 
   else 
   {
-    touch_fd = open(DEFAULT_TOUCH_EVENT,O_RDONLY | O_NONBLOCK);
+    memset(cmdline, 0, MAXPATHLENGTH);
+    sysfs_read(CMDLINEPATH,"cmdline",cmdline,MAXPATHLENGTH-1);
+    if(strstr(cmdline,"hw_code=110"))
+      touch_fd = open(DEFAULT_TOUCH_EVENT0,O_RDONLY | O_NONBLOCK);
+    else
+      touch_fd = open(DEFAULT_TOUCH_EVENT1,O_RDONLY | O_NONBLOCK);
   }
   
   if(touch_fd < 0)
