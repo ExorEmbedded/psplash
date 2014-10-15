@@ -573,6 +573,7 @@ int TapTap_Detected(int touch_fd, PSplashFB *fb, int laststatus)
   int time; //Time [s/200]
   char msg[MAXPATHLENGTH];
   int taptap = 0;
+  int prevstatus = laststatus;
   
   // Perform synchronization with the JMlauncher: put it in wait status
   SyncJMLauncher("wait");
@@ -584,6 +585,10 @@ int TapTap_Detected(int touch_fd, PSplashFB *fb, int laststatus)
       refreshtrigger = 0xff;
     
     Touch_handler(touch_fd, &taptap, &laststatus);
+    if(prevstatus != laststatus)
+       time = 1000;
+    prevstatus = laststatus;    
+	
     if(laststatus != refreshtrigger)
     { //It is time to refresh the printout
       refreshtrigger = laststatus;
@@ -634,6 +639,10 @@ int TapTap_Detected(int touch_fd, PSplashFB *fb, int laststatus)
 	refreshtrigger = 0xff;
       
       Touch_handler(touch_fd, &taptap, &laststatus);
+      if(prevstatus != laststatus)
+         time = 1000;
+      prevstatus = laststatus;    
+
       if(laststatus != refreshtrigger)
       { //It is time to refresh the printout
 	refreshtrigger = laststatus;
