@@ -19,8 +19,8 @@
 #ifndef _HAVE_CUSTOMIZATIONS_H
 #define _HAVE_CUSTOMIZATIONS_H
 
-#define TAPTAP_THLO 3
-#define TAPTAP_TH   10
+#define TAPTAP_THLO 1
+#define TAPTAP_TH   3
 #define USESMALLFONT_TH 450
 int psplash_draw_custom_splashimage(PSplashFB *fb);
 void UpdateBrightness();
