@@ -33,7 +33,7 @@
 #define SPLASH_SIZE_IDX       2
 
 #define DEFAULT_SPLASHPARTITION          "/dev/mmcblk1p1"
-#define PATHTOSPLASH                     "/mnt/.splashimage"
+#define PATHTOSPLASH                     "/mnt/factory"
 #define SPLASHFILENAME                   "/splashimage.bin"
 
 #define BRIGHTNESSDEVICE                 "/sys/class/backlight/"
@@ -253,7 +253,7 @@ int psplash_draw_custom_splashimage(PSplashFB *fb)
   char mkdir_cmd[] = "mkdir "PATHTOSPLASH; 
   systemcmd(mkdir_cmd);
   
-  char mount_cmd[MAXPATHLENGTH] = "mount ";
+  char mount_cmd[MAXPATHLENGTH] = "mount -o ro ";
   strncat(mount_cmd, splashpartition, MAXPATHLENGTH/2);
   mount_cmd[MAXPATHLENGTH/2] = 0;
   strcat(mount_cmd, " ");
@@ -338,7 +338,7 @@ int psplash_draw_custom_splashimage(PSplashFB *fb)
   free(stride);
   fclose(fp);
   // UnMount the splash partition 
-  systemcmd(umount_cmd);
+  // systemcmd(umount_cmd);
   
   return 0;
 
@@ -346,7 +346,7 @@ error:
   if(fp)
     fclose(fp);
   // UnMount the splash partition 
-  systemcmd(umount_cmd);
+  // systemcmd(umount_cmd);
   
   return -1;
 }
