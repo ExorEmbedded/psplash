@@ -26,10 +26,12 @@
 #include <fcntl.h>
 #include <errno.h>
 #include "psplash.h"
+#include "common.h"
 
 int main(int argc, char **argv) 
 {
   char *tmpdir;
+  char *command;
   int   pipe_fd;
 
   tmpdir = getenv("TMPDIR");
@@ -42,18 +44,24 @@ int main(int argc, char **argv)
       fprintf(stderr, "Wrong number of arguments\n");
       exit(-1);
     }
+
+  command = argv[1];
   
   chdir(tmpdir);
   
   if ((pipe_fd = open (PSPLASH_FIFO,O_WRONLY|O_NONBLOCK)) == -1)
     {
+      /* if psplash is down we handle shutdown ourselves */
+      if (strcmp(command,"QUIT") == 0)
+        setbootcounter(0);
+
       /* Silently error out instead of covering the boot process in 
          errors when psplash has exitted due to a VC switch */
       /* perror("Error unable to open fifo"); */
       exit (-1);
     }
 
-  write(pipe_fd, argv[1], strlen(argv[1])+1);
+  write(pipe_fd, command, strlen(command)+1);
 
   return 0;
 }

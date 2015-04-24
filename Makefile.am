@@ -3,11 +3,12 @@ bin_PROGRAMS=psplash psplash-write
 AM_CFLAGS = $(GCC_FLAGS) -D_GNU_SOURCE
 
 psplash_SOURCES = psplash.c psplash.h psplash-fb.c psplash-fb.h \
-                  psplash-console.c psplash-console.h           \
-		  psplash-colors.h				\
-		  psplash-poky-img.h psplash-bar-img.h radeon-font.h customizations.c customizations.h settings-img.h configos-img.h calib-img.h
+					psplash-console.c psplash-console.h 		\
+					psplash-colors.h							\
+					psplash-poky-img.h psplash-bar-img.h radeon-font.h customizations.c customizations.h settings-img.h configos-img.h calib-img.h \
+					common.c common.h
 
-psplash_write_SOURCES = psplash-write.c psplash.h
+psplash_write_SOURCES = psplash-write.c psplash.h common.c common.h
 
 EXTRA_DIST = make-image-header.sh
  

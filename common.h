@@ -16,19 +16,11 @@
  *
  */
 
-#ifndef _HAVE_CUSTOMIZATIONS_H
-#define _HAVE_CUSTOMIZATIONS_H
+#ifndef _HAVE_COMMON_H
+#define _HAVE_COMMON_H
 
-#define TAPTAP_THLO 1
-#define TAPTAP_TH   3
-#define USESMALLFONT_TH 450
-int psplash_draw_custom_splashimage(PSplashFB *fb);
-void UpdateBrightness();
-int Touch_handler(int touch_fd, int* taptap, int* laststatus);
-void Touch_close(int touch_fd);
-int Touch_open();
-void TapTap_Progress(PSplashFB *fb, int taptap);
-int TapTap_Detected(int touch_fd, PSplashFB *fb, int laststatus);
+#include <stdio.h>
+
 int setbootcounter(unsigned char val);
 
 #endif
