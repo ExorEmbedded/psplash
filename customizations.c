@@ -413,7 +413,7 @@ int Touch_open()
   {
     memset(cmdline, 0, MAXPATHLENGTH);
     sysfs_read(CMDLINEPATH,"cmdline",cmdline,MAXPATHLENGTH-1);
-    if(strstr(cmdline,"hw_code=110"))
+    if(strstr(cmdline,"hw_code=110") || strstr(cmdline,"hw_code=114"))
       touch_fd = open(DEFAULT_TOUCH_EVENT0,O_RDONLY | O_NONBLOCK);
     else
       touch_fd = open(DEFAULT_TOUCH_EVENT1,O_RDONLY | O_NONBLOCK);
