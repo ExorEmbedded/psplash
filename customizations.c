@@ -210,12 +210,6 @@ int psplash_draw_custom_splashimage(PSplashFB *fb)
 {
   char * splashpartition; //Partition containing the splashimage.bin file
   
-  if(fb->bpp != 16)
-  {
-    fprintf(stderr,"psplash: custom splashimage available only on 16bpp framebuffer \n");
-    return -1;
-  }
-  
   // Get the splash partition from the environment or use the default partition 
   splashpartition = getenv("SPLASHPARTITION");
   if (splashpartition == NULL)
