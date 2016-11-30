@@ -615,12 +615,12 @@ int TapTap_Detected(int touch_fd, PSplashFB *fb, int laststatus)
 	refreshtrigger = laststatus;
 	if(!laststatus) 
 	{
-	  sprintf(msg, "** ENTERING SYSTEM SETTINGS ...  %d **\n>> DEFAULT MODE\n   TOUCHSCREEN CALIBRATION\n",(int)(time/200));
+	  sprintf(msg, "** ENTERING SYSTEM SETTINGS  %d **\n>> DEFAULT MODE\n   TOUCHSCREEN CALIBRATION\n",(int)(time/200));
 	  Draw_Icon(fb, SETTINGS_IMG_WIDTH, SETTINGS_IMG_HEIGHT, SETTINGS_IMG_RLE_PIXEL_DATA, PSPLASH_TEXTBK_COLOR);
 	}
 	else
 	{
-	  sprintf(msg, "** ENTERING SYSTEM SETTINGS ...  %d **\n   DEFAULT MODE\n>> TOUCHSCREEN CALIBRATION\n",(int)(time/200));
+	  sprintf(msg, "** ENTERING SYSTEM SETTINGS  %d **\n   DEFAULT MODE\n>> TOUCHSCREEN CALIBRATION\n",(int)(time/200));
 	  Draw_Icon(fb, CALIB_IMG_WIDTH, CALIB_IMG_HEIGHT, CALIB_IMG_RLE_PIXEL_DATA, PSPLASH_TEXTBK_COLOR);
 	}
 	// Draw the string
