@@ -21,7 +21,7 @@
 
 #define TAPTAP_THLO 1
 #define TAPTAP_TH   3
-#define USESMALLFONT_TH 450
+#define USESMALLFONT_TH 500
 int psplash_draw_custom_splashimage(PSplashFB *fb);
 void UpdateBrightness();
 int Touch_handler(int touch_fd, int* taptap, int* laststatus);
