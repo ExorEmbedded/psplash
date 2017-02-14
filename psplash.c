@@ -128,7 +128,7 @@ parse_command (PSplashFB *fb, char *string, int length)
 }
 
 void 
-psplash_main (PSplashFB *fb, int pipe_fd, int touch_fd) 
+psplash_main (PSplashFB *fb, int pipe_fd, bool disable_touch)
 {
   int            err;
   ssize_t        length = 0;
@@ -138,6 +138,7 @@ psplash_main (PSplashFB *fb, int pipe_fd, int touch_fd)
   char           command[2048];
   int            taptap=0;
   int            laststatus=0;
+  int            touch_fd = -1;
 
   tv.tv_sec = 0;
   tv.tv_usec = 200000;
@@ -147,10 +148,13 @@ psplash_main (PSplashFB *fb, int pipe_fd, int touch_fd)
 
   end = command;
 
-  while (1) 
+  while (1)
     {
     startloop:
       // Handles tap-tap touchscreen sequence
+      if(touch_fd < 0 && disable_touch == FALSE)
+            touch_fd = Touch_open();
+
       if(Touch_handler(touch_fd, &taptap, &laststatus))
       {
 	TapTap_Progress(fb, taptap);
@@ -221,7 +225,6 @@ main (int argc, char** argv)
   int        pipe_fd, i = 0, angle = 0, ret = 0;
   PSplashFB *fb;
   bool       disable_console_switch = FALSE;
-  int        touch_fd = -1;
   bool       disable_touch = FALSE;
   
   signal(SIGHUP, psplash_exit);
@@ -314,14 +317,11 @@ main (int argc, char** argv)
   psplash_draw_progress (fb, 0);
 
   UpdateBrightness();
-  
-  if(disable_touch == FALSE)
-    touch_fd = Touch_open();
-  psplash_main (fb, pipe_fd, touch_fd); 
-  Touch_close(touch_fd);
+
+  psplash_main (fb, pipe_fd, disable_touch);
 
   psplash_fb_destroy (fb);
-  
+
   // Clear the bootcounter
   setbootcounter(0);
 
