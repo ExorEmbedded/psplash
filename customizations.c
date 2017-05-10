@@ -392,7 +392,7 @@ void UpdateBrightness()
  NOTE: The touch event can be defined by the "TSDEVICE" environment var. If TSDEVICE not defined, the
        default "/dev/input/event0" or  "/dev/input/event1" is used, based on the hw_code (taken from cmdline)
        hw_code=110 -> "/dev/input/event0" (This is the ECO panel, which uses the CPU touch controller)
-       hw_code=125,122,121 -> "/dev/input/event2" (jSmart, Wu16+uS03, Wu16+uS01)
+       hw_code=124,125,122,121 -> "/dev/input/event2" (jSmart, Wu16+uS03, Wu16+uS01)
        hw_code=... -> "/dev/input/event1"
  ***********************************************************************************************************/
 int Touch_open()
@@ -411,7 +411,7 @@ int Touch_open()
     sysfs_read(CMDLINEPATH,"cmdline",cmdline,MAXPATHLENGTH-1);
     if(strstr(cmdline,"hw_code=110") || strstr(cmdline,"hw_code=114"))
       touch_fd = open(DEFAULT_TOUCH_EVENT0,O_RDONLY | O_NONBLOCK);
-    else if(strstr(cmdline,"hw_code=125") || strstr(cmdline,"hw_code=121") || strstr(cmdline,"hw_code=122"))
+    else if(strstr(cmdline,"hw_code=124") || strstr(cmdline,"hw_code=125") || strstr(cmdline,"hw_code=121") || strstr(cmdline,"hw_code=122"))
       touch_fd = open(DEFAULT_TOUCH_EVENT2,O_RDONLY | O_NONBLOCK);
     else
       touch_fd = open(DEFAULT_TOUCH_EVENT1,O_RDONLY | O_NONBLOCK);
