@@ -16,6 +16,10 @@
  *
  */
 
+
+#include <stdio.h>
+#include <string.h>
+
 #include "psplash.h"
 #include "psplash-fb.h"
 #include "customizations.h"
@@ -25,6 +29,7 @@
 #include "settings-img.h"
 #include "configos-img.h"
 #include "calib-img.h"
+#include <math.h>
 
 #define MAXPATHLENGTH 200
 
@@ -48,9 +53,37 @@
 #define DEFAULT_TOUCH_EVENT1             "/dev/input/event1"
 #define DEFAULT_TOUCH_EVENT2             "/dev/input/event2"
 
+#define EPAD_CFG                         "/etc/EPAD/system.ini"
+
 /***********************************************************************************************************
  STATIC HELPER FUNCTIONS
  ***********************************************************************************************************/
+
+// Helper function to read a system parameter system.ini file
+static int getSystemParameter(const char* key, int* value)
+{
+  char match[128];
+  char line[128];
+  strncpy( match, key, sizeof(match)-3 );
+  strcat(match, "=%d");
+
+  FILE* fd = fopen(EPAD_CFG, "r");
+
+  if (fd) {
+
+    while (fgets (line, sizeof(line), fd))
+    {
+      if (sscanf(line, match, value)) {
+        fclose(fd);
+        return 0;
+      }
+    }
+
+    fclose(fd);
+  }
+
+  return -1;
+}
 
 //Helper function to show the specified icon
 static void Draw_Icon(PSplashFB *fb, int iconw, int iconh, uint8* data, uint8 bkred, uint8 bkgreen, uint8 bkblue)
@@ -317,6 +350,217 @@ error:
   // systemcmd(umount_cmd);
   
   return -1;
+}
+
+/*
+ * Structure used to define a 5*3 matrix of parameters for
+ * setting IPU DP CSC module related to this framebuffer.
+ */
+struct mxcfb_csc_matrix {
+	int param[5][3];
+};
+
+#define MXCFB_CSC_UPDATE_LCD	_IOW('F', 0x3F, struct mxcfb_csc_matrix)
+
+int UpdateColorMatrix()
+{
+  int hue, white, sat_r, sat_g, sat_b;
+  bool applyMatrix = FALSE;
+
+  if ( getSystemParameter("hue", &hue) == 0 ) {
+    if ( hue < -100 )
+      hue = -100;
+    if ( hue > 100 )
+      hue = 100;
+
+    if ( hue != 0 )
+      applyMatrix = TRUE;
+
+  } else {
+    hue = 0;
+  }
+
+  if ( getSystemParameter("whitebalance", &white) == 0 ) {
+    if ( white < -100 )
+      white = -100;
+    if ( white > 100 )
+      white = 100;
+
+    if ( white != 0 )
+      applyMatrix = TRUE;
+
+  } else {
+    white = 0;
+  }
+
+  if ( getSystemParameter("saturation\\red", &sat_r) == 0 ) {
+    if ( sat_r < 0 )
+      sat_r = 0;
+
+    if ( ! (sat_r < 100) )
+      sat_r = 100;
+    else
+      applyMatrix = TRUE;
+
+  } else {
+    sat_r = 100;
+  }
+
+  if ( getSystemParameter("saturation\\green", &sat_g) == 0 ) {
+    if ( sat_g < 0 )
+      sat_g = 0;
+
+    if ( ! (sat_g < 100) )
+      sat_g = 100;
+    else
+      applyMatrix = TRUE;
+
+  } else {
+    sat_g = 100;
+  }
+
+  if ( getSystemParameter("saturation\\blue", &sat_b) == 0 ) {
+    if ( sat_b < 0 )
+      sat_b = 0;
+
+    if ( ! (sat_b < 100) )
+      sat_b = 100;
+    else
+      applyMatrix = TRUE;
+
+  } else {
+    sat_b = 100;
+  }
+
+  if (!applyMatrix)
+    return 0;
+
+  fprintf(stderr,"Applying hue %d, white %d, red %d, green %d, blue %d \n", hue, white, sat_r, sat_g, sat_b);
+
+  static double color_correction_matrix[5][3] = {
+    {  1.0,  0.0,  0.0 },
+    {  0.0,  1.0,  0.0 },
+    {  0.0,  0.0,  1.0 },
+  };
+
+  double hue_coeff;
+  if(hue < 0)
+    hue_coeff = 360 + (30 * ((float)hue/100.));
+  else
+    hue_coeff = 30 * ((float)hue/100.);
+
+  double white_coeff = ((float)(white)/800.);
+  double sat_r_coeff = ((float)(sat_r)/100.);
+  double sat_g_coeff = ((float)(sat_g)/100.);
+  double sat_b_coeff = ((float)(sat_b)/100.);
+
+  int i,j, k;
+  const double cosA = cos(hue_coeff*3.14159265f/180); //convert degrees to radians
+  const double sinA = sin(hue_coeff*3.14159265f/180); //convert degrees to radians
+  const double rwgt = 0.3086;
+  const double gwgt = 0.6094;
+  const double bwgt = 0.0820;
+
+  double white_matrix[3][3] = {
+    {  1.0,  0.0,  0.0 },
+    {  0.0,  1.0,  0.0 },
+    {  0.0,  0.0,  1.0 },
+  };
+
+  double sat[3][3];
+  double m1[3][3];
+  double m2[3][3];
+
+  //Compute HUE transform matrix
+  double hue_matrix[3][3] = {{cosA + (1.0f - cosA) / 3.0f, 1.0f/3.0f * (1.0f - cosA) - sqrtf(1.0f/3.0f) * sinA, 1.0f/3.0f * (1.0f - cosA) + sqrtf(1.0f/3.0f) * sinA},
+    {1.0f/3.0f * (1.0f - cosA) + sqrtf(1.0f/3.0f) * sinA, cosA + 1.0f/3.0f*(1.0f - cosA), 1.0f/3.0f * (1.0f - cosA) - sqrtf(1.0f/3.0f) * sinA},
+    {1.0f/3.0f * (1.0f - cosA) - sqrtf(1.0f/3.0f) * sinA, 1.0f/3.0f * (1.0f - cosA) + sqrtf(1.0f/3.0f) * sinA, cosA + 1.0f/3.0f * (1.0f - cosA)}};
+
+  //Compute white balance transform matrix
+  white_matrix[0][0] = 1.0 + white_coeff;
+  if(white_matrix[0][0] > 1.0)
+    white_matrix[0][0] = 1.0;
+
+  white_matrix[2][2] = 1.0 - white_coeff;
+  if(white_matrix[2][2] > 1.0)
+    white_matrix[2][2] = 1.0;
+
+  //m1 = multiply color white transform matrix by HUE transform matrix
+  for(i = 0;i < 3;i++)
+    for(j = 0;j < 3;j++)
+    {
+      m1[i][j] = 0;
+      for(k=0;k<3;k++)
+        m1[i][j] += hue_matrix[i][k] * white_matrix[k][j];
+    }
+
+  //Compute the saturation matrix
+  sat[0][0] = (1.0-sat_r_coeff)*rwgt + sat_r_coeff;
+  sat[0][1] = (1.0-sat_r_coeff)*gwgt;
+  sat[0][2] = (1.0-sat_r_coeff)*bwgt;
+
+  sat[1][0] = (1.0-sat_g_coeff)*rwgt;
+  sat[1][1] = (1.0-sat_g_coeff)*gwgt + sat_g_coeff;
+  sat[1][2] = (1.0-sat_g_coeff)*bwgt;
+
+  sat[2][0] = (1.0-sat_b_coeff)*rwgt;
+  sat[2][1] = (1.0-sat_b_coeff)*gwgt;
+  sat[2][2] = (1.0-sat_b_coeff)*bwgt + sat_b_coeff;
+
+  //m2 = multiply saturation matrix by m1 transform matrix
+  for(i = 0;i < 3;i++)
+    for(j = 0;j < 3;j++)
+    {
+      m2[i][j] = 0;
+      for(k=0;k<3;k++)
+        m2[i][j] += m1[i][k] * sat[k][j];
+    }
+
+  //Generate the color correction matrix
+  for(i = 0;i < 3;i++)
+  {
+    for(j = 0;j < 3;j++)
+    {
+      color_correction_matrix[i][j] = m2[i][j] * 127.;
+    }
+  }
+
+  color_correction_matrix[3][0] = 0.;
+  color_correction_matrix[3][1] = 0.;
+  color_correction_matrix[3][2] = 0.;
+  color_correction_matrix[4][0] = 1.;
+  color_correction_matrix[4][1] = 1.;
+  color_correction_matrix[4][2] = 1.;
+
+  int fd;
+  fd = open("/dev/fb1",O_RDWR);
+  if ( fd < 0 )
+    return -1;
+
+  struct mxcfb_csc_matrix csc_matrix;
+  memset(&csc_matrix,0,sizeof(csc_matrix));
+
+  for(i = 0;i < 3;i++)
+  {
+    for(j = 0;j < 3;j++)
+    {
+      csc_matrix.param[i][j] = (int)color_correction_matrix[i][j] & 0x3FF;
+    }
+  }
+  for(i = 0;i < 3;i++)
+  {
+    csc_matrix.param[3][i] = (int)color_correction_matrix[3][i] & 0x3FFF;
+    csc_matrix.param[4][i] = (int)color_correction_matrix[4][i];
+  }
+
+  int retval = ioctl(fd, MXCFB_CSC_UPDATE_LCD, &csc_matrix);
+  close(fd);
+  if (retval < 0) {
+    printf("Ioctl MXCFB_CSC_UPDATE_LCD fail!\n");
+    return -1;
+  }
+
+  return 0;
 }
 
 

@@ -23,9 +23,12 @@
 #include "psplash-bar-img.h"
 #include "radeon-font.h"
 #include "customizations.h"
+#include <unistd.h>
 
 //Global variable indicating the font scale factor: 0=>1x 1=>2x 2=>4x
 int FONT_SCALE;
+
+bool disable_progress_bar = FALSE;
 
 void
 psplash_exit (int signum)
@@ -64,6 +67,9 @@ psplash_draw_msg (PSplashFB *fb, const char *msg)
 void
 psplash_draw_progress (PSplashFB *fb, int value)
 {
+  if (disable_progress_bar)
+    return;
+
   int x, y, width, height, barwidth;
 
   /* 4 pix border */
@@ -239,6 +245,12 @@ main (int argc, char** argv)
 	  continue;
 	}
 
+      if (!strcmp(argv[i],"-np") || !strcmp(argv[i],"--no-progress-bar"))
+        {
+	  disable_progress_bar = TRUE;
+	  continue;
+	}
+
       if (!strcmp(argv[i],"-a") || !strcmp(argv[i],"--angle"))
         {
 	  if (++i >= argc) goto fail;
@@ -254,7 +266,7 @@ main (int argc, char** argv)
  
     fail:
       fprintf(stderr, 
-	      "Usage: %s [-n|--no-console-switch][-a|--angle <0|90|180|270>]\n", 
+	      "Usage: %s [-n|--no-console-switch][-a|--angle <0|90|180|270>][-np|--no-progress-bar]\n", 
 	      argv[0]);
       exit(-1);
     }
@@ -330,6 +342,9 @@ main (int argc, char** argv)
 
   if (!disable_console_switch)
     psplash_console_reset ();
+
+  usleep(1000000);
+  UpdateColorMatrix();
 
   return ret;
 }
