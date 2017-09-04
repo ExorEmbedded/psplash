@@ -171,6 +171,9 @@ psplash_main (PSplashFB *fb, int pipe_fd, bool disable_touch)
 	}
       }
 
+      if (vt_requested())
+        return;
+
       err = select(pipe_fd+1, &descriptors, NULL, NULL, &tv);
       
       if (err <= 0) 

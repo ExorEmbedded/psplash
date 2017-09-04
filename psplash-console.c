@@ -22,6 +22,7 @@ static int ConsoleFd      = -1;
 static int VTNum          = -1;
 static int VTNumInitial   = -1;
 static int Visible        =  1;
+static int VTRequested    =  FALSE;
 
 static void
 vt_request (int sig)
@@ -42,6 +43,8 @@ vt_request (int sig)
        * a signal interuption error - not sure if this is really
        * reliable however. 
       */
+
+      VTRequested = TRUE;
     }
   else
     {
@@ -50,6 +53,12 @@ vt_request (int sig)
       Visible = 1;
       /* FIXME: need to schedule repaint some how ? */
     }
+}
+
+bool
+vt_requested ()
+{
+  return VTRequested;
 }
 
 static void
