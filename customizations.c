@@ -53,36 +53,46 @@
 #define DEFAULT_TOUCH_EVENT1             "/dev/input/event1"
 #define DEFAULT_TOUCH_EVENT2             "/dev/input/event2"
 
-#define EPAD_CFG                         "/etc/EPAD/system.ini"
+#define SYSPARAMS_CMD                    "/usr/bin/sys_params "
 
 /***********************************************************************************************************
  STATIC HELPER FUNCTIONS
  ***********************************************************************************************************/
 
 // Helper function to read a system parameter system.ini file
-static int getSystemParameter(const char* key, int* value)
+static int getSystemParameter(const char* key, char* value)
 {
-  char match[128];
-  char line[128];
-  strncpy( match, key, sizeof(match)-3 );
-  strcat(match, "=%d");
 
-  FILE* fd = fopen(EPAD_CFG, "r");
+  char cmd[256];
+  strcpy( cmd, SYSPARAMS_CMD);
+  strncat(cmd, key, sizeof(cmd) - sizeof(SYSPARAMS_CMD) -1);
 
-  if (fd) {
+  FILE* pipe = popen(cmd, "r");
+  if (!pipe)
+    return -1;
 
-    while (fgets (line, sizeof(line), fd))
-    {
-      if (sscanf(line, match, value)) {
-        fclose(fd);
-        return 0;
-      }
-    }
-
-    fclose(fd);
+  if ( fgets(value, sizeof(value), pipe) == NULL) {
+    pclose(pipe);
+    return -1;
   }
 
-  return -1;
+  return 0;
+}
+
+static int getSystemParameterInt(const char* key, int* value)
+{
+
+  char strValue[128];
+  char* end;
+  if ( getSystemParameter(key, strValue) < 0 )
+      return -1;
+
+  *value = (int) strtol(strValue, &end, 10);
+
+  if (end == strValue)
+     return -1;
+
+  return 0;
 }
 
 //Helper function to show the specified icon
@@ -364,10 +374,16 @@ struct mxcfb_csc_matrix {
 
 int UpdateColorMatrix()
 {
-  int hue, white, sat_r, sat_g, sat_b;
+  int hue = 0;
+  int white = 0;
+  int sat_r = 100;
+  int sat_g = 100;
+  int sat_b = 100;
+  int value;
   bool applyMatrix = FALSE;
 
-  if ( getSystemParameter("hue", &hue) == 0 ) {
+  if ( getSystemParameterInt("screen/hue", &value) == 0 ) {
+    hue = value;
     if ( hue < -100 )
       hue = -100;
     if ( hue > 100 )
@@ -375,12 +391,10 @@ int UpdateColorMatrix()
 
     if ( hue != 0 )
       applyMatrix = TRUE;
-
-  } else {
-    hue = 0;
   }
 
-  if ( getSystemParameter("whitebalance", &white) == 0 ) {
+  if ( getSystemParameterInt("screen/whitebalance", &value) == 0 ) {
+    white = value;
     if ( white < -100 )
       white = -100;
     if ( white > 100 )
@@ -388,12 +402,10 @@ int UpdateColorMatrix()
 
     if ( white != 0 )
       applyMatrix = TRUE;
-
-  } else {
-    white = 0;
   }
 
-  if ( getSystemParameter("saturation\\red", &sat_r) == 0 ) {
+  if ( getSystemParameterInt("screen/saturation/red", &value) == 0 ) {
+    sat_r = value;
     if ( sat_r < 0 )
       sat_r = 0;
 
@@ -401,12 +413,10 @@ int UpdateColorMatrix()
       sat_r = 100;
     else
       applyMatrix = TRUE;
-
-  } else {
-    sat_r = 100;
   }
 
-  if ( getSystemParameter("saturation\\green", &sat_g) == 0 ) {
+  if ( getSystemParameterInt("screen/saturation/green", &value) == 0 ) {
+    sat_g = value;
     if ( sat_g < 0 )
       sat_g = 0;
 
@@ -414,12 +424,10 @@ int UpdateColorMatrix()
       sat_g = 100;
     else
       applyMatrix = TRUE;
-
-  } else {
-    sat_g = 100;
   }
 
-  if ( getSystemParameter("saturation\\blue", &sat_b) == 0 ) {
+  if ( getSystemParameterInt("screen/saturation/blue", &value) == 0 ) {
+    sat_b = value;
     if ( sat_b < 0 )
       sat_b = 0;
 
@@ -427,9 +435,6 @@ int UpdateColorMatrix()
       sat_b = 100;
     else
       applyMatrix = TRUE;
-
-  } else {
-    sat_b = 100;
   }
 
   if (!applyMatrix)
