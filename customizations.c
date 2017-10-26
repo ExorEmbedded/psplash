@@ -649,6 +649,8 @@ int Touch_open()
   int touch_fd = -1;
   char *tsdevice = NULL;
   char cmdline[MAXPATHLENGTH];
+  char * pch;
+  int hw_code = -1;
 
   if( (tsdevice = getenv("TSDEVICE")) != NULL ) 
   {
@@ -658,12 +660,35 @@ int Touch_open()
   {
     memset(cmdline, 0, MAXPATHLENGTH);
     sysfs_read(CMDLINEPATH,"cmdline",cmdline,MAXPATHLENGTH-1);
-    if(strstr(cmdline,"hw_code=110") || strstr(cmdline,"hw_code=114") || strstr(cmdline,"hw_code=123"))
-      touch_fd = open(DEFAULT_TOUCH_EVENT0,O_RDONLY | O_NONBLOCK);
-    else if(strstr(cmdline,"hw_code=124") || strstr(cmdline,"hw_code=125") || strstr(cmdline,"hw_code=121") || strstr(cmdline,"hw_code=122"))
-      touch_fd = open(DEFAULT_TOUCH_EVENT2,O_RDONLY | O_NONBLOCK);
-    else
-      touch_fd = open(DEFAULT_TOUCH_EVENT1,O_RDONLY | O_NONBLOCK);
+
+    pch = strstr(cmdline, "hw_code=") + strlen("hw_code=");
+    sscanf (pch,"%d %*s", &hw_code);
+
+    switch( hw_code )
+    {
+	case ECO_VAL:
+	case BE15A_VAL:
+	    touch_fd = open(DEFAULT_TOUCH_EVENT0,O_RDONLY | O_NONBLOCK);
+	    break;
+
+	case WU16_VAL:
+	case US03WU16_VAL:
+	case JSMART_VAL:
+	case JSMARTQ_VAL:
+	    touch_fd = open(DEFAULT_TOUCH_EVENT2,O_RDONLY | O_NONBLOCK);
+	    break;
+
+	case AUTEC_VAL:
+	    touch_fd = open(DEFAULT_TOUCH_EVENT1,O_RDONLY | O_NONBLOCK);
+	    if( touch_fd < 0 ){
+		touch_fd = open(DEFAULT_TOUCH_EVENT0,O_RDONLY | O_NONBLOCK);
+	    }
+	    break;
+
+	default:
+	    touch_fd = open(DEFAULT_TOUCH_EVENT1,O_RDONLY | O_NONBLOCK);
+	    break;
+    }
   }
   
   if(touch_fd < 0)
