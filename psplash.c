@@ -53,12 +53,14 @@ psplash_draw_msg (PSplashFB *fb, const char *msg)
 
   psplash_fb_draw_rect (fb, 
 			0, 
+			0, 
 			10, 
 			fb->width,
 			h+10,
 			PSPLASH_TEXTBK_COLOR);
 
   psplash_fb_draw_text (fb,
+            0,
 			(fb->width-w)/2, 
 			15,
 			PSPLASH_TEXT_COLOR,
@@ -79,24 +81,26 @@ psplash_draw_infinite_progress (PSplashFB *fb, int bar_rel_sz, int *progress)
 
     int x, y, width, height, barwidth, xoff;
 
-    /* 4 pix border */
-    x      = ((fb->width  - BAR_IMG_WIDTH)/2) + 4 ;
-    y      = fb->height - (fb->height/6) + 4;
-    width  = BAR_IMG_WIDTH - 8; 
-    height = BAR_IMG_HEIGHT - 8;
+    x      = (fb->width - BAR_IMG_WIDTH)/2;
+    y      = fb->height - (fb->height/6);
+    width  = BAR_IMG_WIDTH;
+    height = BAR_IMG_HEIGHT;
 
     barwidth = (width + (bar_rel_sz-1)) / bar_rel_sz;  // equivalent to (width / bar_rel_sz) but rounded up
     xoff = x + *progress;
 
-    if ((xoff + barwidth) > (x + width)) {
+    if ((xoff + barwidth) > (x + width))
+      {
         *progress = 0;
         xoff = x;
-    }
+      }
 
-    psplash_fb_draw_rect (fb, x, y, width, height, PSPLASH_BAR_BACKGROUND_COLOR);
-    psplash_fb_draw_rect (fb, xoff, y, barwidth, height, PSPLASH_BAR_COLOR);
+    // use double buffering to avoid flickering due to overlapping rectangles
+    psplash_fb_draw_rect (fb, 1, x, y, width, height, PSPLASH_BAR_BACKGROUND_COLOR);
+    psplash_fb_draw_rect (fb, 1, xoff, y, barwidth, height, PSPLASH_BAR_COLOR);
+    psplash_fb_flush_rect (fb, x, y, width, height);
 
-    *progress += 1;
+    *progress += 2;
 }
 
 /*
@@ -110,28 +114,27 @@ psplash_draw_progress (PSplashFB *fb, int value)
 
   int x, y, width, height, barwidth;
 
-  /* 4 pix border */
-  x      = ((fb->width  - BAR_IMG_WIDTH)/2) + 4 ;
+  x      = (fb->width  - BAR_IMG_WIDTH)/2;
   y      = fb->height - (fb->height/6) + 4;
-  width  = BAR_IMG_WIDTH - 8; 
-  height = BAR_IMG_HEIGHT - 8;
+  width  = BAR_IMG_WIDTH;
+  height = BAR_IMG_HEIGHT;
 
   if (value > 0)
     {
       barwidth = (CLAMP(value,0,100) * width) / 100;
-      psplash_fb_draw_rect (fb, x + barwidth, y, 
+      psplash_fb_draw_rect (fb, 0, x + barwidth, y, 
     			width - barwidth, height,
 			PSPLASH_BAR_BACKGROUND_COLOR);
-      psplash_fb_draw_rect (fb, x, y, barwidth,
+      psplash_fb_draw_rect (fb, 0, x, y, barwidth,
 			    height, PSPLASH_BAR_COLOR);
     }
   else
     {
       barwidth = (CLAMP(-value,0,100) * width) / 100;
-      psplash_fb_draw_rect (fb, x, y, 
+      psplash_fb_draw_rect (fb, 0, x, y, 
     			width - barwidth, height,
 			PSPLASH_BAR_BACKGROUND_COLOR);
-      psplash_fb_draw_rect (fb, x + width - barwidth,
+      psplash_fb_draw_rect (fb, 0, x + width - barwidth,
 			    y, barwidth, height,
 			    PSPLASH_BAR_COLOR);
     }
@@ -373,14 +376,14 @@ main (int argc, char** argv)
     FONT_SCALE = 1; // large fonts (scale = 2x)
     
   /* Clear the background with #ecece1 */
-  psplash_fb_draw_rect (fb, 0, 0, fb->width, fb->height,
+  psplash_fb_draw_rect (fb, 0, 0, 0, fb->width, fb->height,
                         PSPLASH_BACKGROUND_COLOR);
 			
   if(-1 == psplash_draw_custom_splashimage(fb))
   {
 
   /* Draw the Poky logo  */
-  psplash_fb_draw_image (fb, 
+  psplash_fb_draw_image (fb, 0, 
 			 (fb->width  - POKY_IMG_WIDTH)/2, 
 			 ((fb->height * 5) / 6 - POKY_IMG_HEIGHT)/2,
 			 POKY_IMG_WIDTH,

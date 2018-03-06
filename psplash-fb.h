@@ -35,8 +35,9 @@ typedef struct PSplashFB
   int            width, height;
   int            bpp;
   int            stride;
-  char		*data;
-  char		*base;
+  char          *data;      // actual fb data
+  char          *data_buf;  // double-buffering optimization
+  char          *base;
 
   int            angle;
   int            real_width, real_height;
@@ -57,8 +58,14 @@ psplash_fb_destroy (PSplashFB *fb);
 PSplashFB*
 psplash_fb_new (int angle);
 
+inline
+int psplash_offset (PSplashFB    *fb,
+                int         x,
+                int         y);
+
 inline void
 psplash_fb_plot_pixel (PSplashFB    *fb, 
+		       int          buffered, 
 		       int          x, 
 		       int          y, 
 		       uint8        red,
@@ -67,6 +74,7 @@ psplash_fb_plot_pixel (PSplashFB    *fb,
 
 void
 psplash_fb_draw_rect (PSplashFB    *fb, 
+		      int          buffered, 
 		      int          x, 
 		      int          y, 
 		      int          width, 
@@ -77,6 +85,7 @@ psplash_fb_draw_rect (PSplashFB    *fb,
 
 void
 psplash_fb_draw_image (PSplashFB    *fb, 
+		       int          buffered, 
 		       int          x, 
 		       int          y, 
 		       int          img_width, 
@@ -93,6 +102,7 @@ psplash_fb_text_size (PSplashFB          *fb,
 
 void
 psplash_fb_draw_text (PSplashFB         *fb, 
+		      int                buffered, 
 		      int                x, 
 		      int                y, 
 		      uint8              red,
@@ -101,5 +111,13 @@ psplash_fb_draw_text (PSplashFB         *fb,
 		      const PSplashFont *font,
 		      const char        *text);
 
+// Flush given region of local buffers to framebuffer
+// (applies only if buffered=1 has been used)
+inline void
+psplash_fb_flush_rect (PSplashFB    *fb,
+		       int          x,
+		       int          y,
+		       int          width,
+		       int          height);
 
 #endif

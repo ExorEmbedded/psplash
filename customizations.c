@@ -99,9 +99,10 @@ static int getSystemParameterInt(const char* key, int* value)
 static void Draw_Icon(PSplashFB *fb, int iconw, int iconh, uint8* data, uint8 bkred, uint8 bkgreen, uint8 bkblue)
 {
   #define ICONYPOS 100
-  psplash_fb_draw_rect (fb, (fb->width - iconw)/2, ICONYPOS, iconw, iconh, bkred, bkgreen, bkblue);
+  psplash_fb_draw_rect (fb, 0, (fb->width - iconw)/2, ICONYPOS, iconw, iconh, bkred, bkgreen, bkblue);
   
   psplash_fb_draw_image (fb, 
+			 0,
 			 (fb->width - iconw)/2, 
 			 ICONYPOS,
 			 iconw,
@@ -342,7 +343,7 @@ int psplash_draw_custom_splashimage(PSplashFB *fb)
       blue  = (uint8)((rgb565color << 3) & 0x00ff);
       green = (uint8)((rgb565color >> 3) & 0x00ff);
       red   = (uint8)((rgb565color >>8) & 0x00ff);
-      psplash_fb_plot_pixel (fb, splash_posx + x, splash_posy + y, red, green, blue);
+      psplash_fb_plot_pixel (fb, 0, splash_posx + x, splash_posy + y, red, green, blue);
     }
   }
   
