@@ -25,7 +25,9 @@
 #include "customizations.h"
 #include <unistd.h>
 
-//Global variable indicating the font scale factor: 0=>1x 1=>2x 2=>4x
+#define PROGRESS_FILE "/tmp/splash_progress"
+
+// Global variable indicating the font scale factor: 0=>1x 1=>2x 2=>4x
 int FONT_SCALE;
 
 bool disable_progress_bar = FALSE;
@@ -64,6 +66,42 @@ psplash_draw_msg (PSplashFB *fb, const char *msg)
 			msg);
 }
 
+/*
+ * IMPORTANT: keep appearance aligned with xsplash's draw_infinite_progress()
+ * bar_rel_sz: how many times smaller is bar compared to background box
+ * splash_progress: returned progress offset
+ */
+void
+psplash_draw_infinite_progress (PSplashFB *fb, int bar_rel_sz, int *progress)
+{
+    if (fb == NULL || bar_rel_sz <= 0 || progress == 0)
+        return;
+
+    int x, y, width, height, barwidth, xoff;
+
+    /* 4 pix border */
+    x      = ((fb->width  - BAR_IMG_WIDTH)/2) + 4 ;
+    y      = fb->height - (fb->height/6) + 4;
+    width  = BAR_IMG_WIDTH - 8; 
+    height = BAR_IMG_HEIGHT - 8;
+
+    barwidth = (width + (bar_rel_sz-1)) / bar_rel_sz;  // equivalent to (width / bar_rel_sz) but rounded up
+    xoff = x + *progress;
+
+    if ((xoff + barwidth) > (x + width)) {
+        *progress = 0;
+        xoff = x;
+    }
+
+    psplash_fb_draw_rect (fb, x, y, width, height, PSPLASH_BAR_BACKGROUND_COLOR);
+    psplash_fb_draw_rect (fb, xoff, y, barwidth, height, PSPLASH_BAR_COLOR);
+
+    *progress += 1;
+}
+
+/*
+ * IMPORTANT: keep appearance aligned with xsplash's draw_infinite_progress()
+ */
 void
 psplash_draw_progress (PSplashFB *fb, int value)
 {
@@ -103,21 +141,31 @@ psplash_draw_progress (PSplashFB *fb, int value)
 }
 
 static int 
-parse_command (PSplashFB *fb, char *string, int length) 
+parse_command (PSplashFB *fb, char *string, int length, bool infinite_progress, int progress) 
 {
   char *command;
-  int   parsed=0;
-
-  parsed = strlen(string)+1;
 
   DBG("got cmd %s", string);
 	
-  if (strcmp(string,"QUIT") == 0)
-    return 1;
+  if (strcmp(string, "QUIT") == 0)
+    {
+    if (progress)
+      {
+        FILE* fp;
+        if ((fp = fopen(PROGRESS_FILE, "w")) == NULL) 
+          {
+            fprintf(stderr, "Failed open progress file\n");
+            return 1;
+          }
+        fprintf(fp, "%d\n", progress);
+        fclose(fp);
+      }
+      return 1;
+    }
 
   command = strtok(string," ");
 
-  if (!strcmp(command,"PROGRESS")) 
+  if (!infinite_progress && !strcmp(command,"PROGRESS")) 
     {
       psplash_draw_progress (fb, atoi(strtok(NULL,"\0")));
     } 
@@ -125,16 +173,12 @@ parse_command (PSplashFB *fb, char *string, int length)
     {
       psplash_draw_msg (fb, strtok(NULL,"\0"));
     } 
-  else if (!strcmp(command,"QUIT")) 
-    {
-      return 1;
-    }
 
   return 0;
 }
 
 void 
-psplash_main (PSplashFB *fb, int pipe_fd, bool disable_touch)
+psplash_main (PSplashFB *fb, int pipe_fd, bool disable_touch, bool infinite_progress)
 {
   int            err;
   ssize_t        length = 0;
@@ -145,9 +189,12 @@ psplash_main (PSplashFB *fb, int pipe_fd, bool disable_touch)
   int            taptap=0;
   int            laststatus=0;
   int            touch_fd = -1;
+  // Keep track of current progress so it can be passed to xsplash
+  // currently supports infinite progress mode only
+  int            progress = 0;
 
   tv.tv_sec = 0;
-  tv.tv_usec = 200000;
+  tv.tv_usec = 40000;
 
   FD_ZERO(&descriptors);
   FD_SET(pipe_fd, &descriptors);
@@ -180,11 +227,16 @@ psplash_main (PSplashFB *fb, int pipe_fd, bool disable_touch)
 	{
 	  if((err==0))
 	  { // This is the select(9 timeout case, needed only to handle the tap-tap sequence, so repeat the loop.
+
 	    tv.tv_sec = 0;
-	    tv.tv_usec = 200000;
+	    tv.tv_usec = 40000;  // 40 ms repaint interval = 25fps
 	    
 	    FD_ZERO(&descriptors);
 	    FD_SET(pipe_fd,&descriptors);
+
+        if (infinite_progress)
+            psplash_draw_infinite_progress(fb, 5, &progress);
+
 	    goto startloop;
 	  }
 	  return;
@@ -202,14 +254,14 @@ psplash_main (PSplashFB *fb, int pipe_fd, bool disable_touch)
       
       if (command[length-1] == '\0') 
 	{
-	  if (parse_command(fb, command, strlen(command))) 
+	  if (parse_command(fb, command, strlen(command), infinite_progress, progress)) 
 	    return;
 	  length = 0;
 	} 
       else if (command[length-1] == '\n') 
 	{
 	  command[length-1] = '\0';
-	  if (parse_command(fb, command, strlen(command))) 
+	  if (parse_command(fb, command, strlen(command), infinite_progress, progress)) 
 	    return;
 	  length = 0;
 	} 
@@ -235,6 +287,7 @@ main (int argc, char** argv)
   PSplashFB *fb;
   bool       disable_console_switch = FALSE;
   bool       disable_touch = FALSE;
+  bool       infinite_progress = FALSE;
   
   signal(SIGHUP, psplash_exit);
   signal(SIGINT, psplash_exit);
@@ -254,6 +307,12 @@ main (int argc, char** argv)
 	  continue;
 	}
 
+      if (!strcmp(argv[i],"--infinite-progress"))
+      {
+        infinite_progress = TRUE;
+        continue;
+      }
+
       if (!strcmp(argv[i],"-a") || !strcmp(argv[i],"--angle"))
         {
 	  if (++i >= argc) goto fail;
@@ -266,10 +325,11 @@ main (int argc, char** argv)
 	disable_touch = TRUE;
 	continue;
       }
+
  
     fail:
       fprintf(stderr, 
-	      "Usage: %s [-n|--no-console-switch][-a|--angle <0|90|180|270>][-np|--no-progress-bar]\n", 
+	      "Usage: %s [-n|--no-console-switch][-a|--angle <0|90|180|270>][--notouch][-np|--no-progress-bar][-xp|--infinite-progress]\n", 
 	      argv[0]);
       exit(-1);
     }
@@ -329,11 +389,12 @@ main (int argc, char** argv)
 			 POKY_IMG_RLE_PIXEL_DATA);
   }
 
-  psplash_draw_progress (fb, 0);
+  if (!infinite_progress)
+    psplash_draw_progress (fb, 0);
 
   UpdateBrightness();
 
-  psplash_main (fb, pipe_fd, disable_touch);
+  psplash_main (fb, pipe_fd, disable_touch, infinite_progress);
 
   psplash_fb_destroy (fb);
 
