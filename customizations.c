@@ -260,7 +260,7 @@ int psplash_draw_custom_splashimage(PSplashFB *fb)
     splashpartition = DEFAULT_SPLASHPARTITION;
   
   // Mount the splash partition 
-  char umount_cmd[] = "umount "PATHTOSPLASH; 
+  //char umount_cmd[] = "umount "PATHTOSPLASH; 
   char mkdir_cmd[] = "mkdir "PATHTOSPLASH; 
   systemcmd(mkdir_cmd);
   
@@ -326,7 +326,7 @@ int psplash_draw_custom_splashimage(PSplashFB *fb)
   uint16*      stride;
   uint16       rgb565color;
   
-  stride = (char*) malloc (2 * (splash_width + 1));
+  stride = (uint16 *) malloc (2 * (splash_width + 1));
   if (stride==NULL)
   {
     fprintf(stderr,"psplash: malloc error\n");
