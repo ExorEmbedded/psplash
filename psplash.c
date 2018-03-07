@@ -80,6 +80,7 @@ psplash_draw_infinite_progress (PSplashFB *fb, int bar_rel_sz, int *progress)
         return;
 
     int x, y, width, height, barwidth, xoff;
+    static int step = 2;
 
     x      = (fb->width - BAR_IMG_WIDTH)/2;
     y      = fb->height - (fb->height/6);
@@ -87,20 +88,28 @@ psplash_draw_infinite_progress (PSplashFB *fb, int bar_rel_sz, int *progress)
     height = BAR_IMG_HEIGHT;
 
     barwidth = (width + (bar_rel_sz-1)) / bar_rel_sz;  // equivalent to (width / bar_rel_sz) but rounded up
+
+    // wrap around
+    if (*progress == INT_MIN || (x + *progress) > (x + width))
+        *progress = -barwidth;
     xoff = x + *progress;
 
-    if ((xoff + barwidth) > (x + width))
-      {
-        *progress = 0;
-        xoff = x;
-      }
+    // draw background
+    psplash_fb_draw_rect (fb, 1, x, y, width, height, PSPLASH_BAR_BACKGROUND_COLOR);
+
+    // draw bar
+    int overflow = xoff + barwidth - (x + width);
+    if (overflow < 0)
+        overflow = 0;
+    if (*progress <= 0)
+      psplash_fb_draw_rect (fb, 1, xoff, y, barwidth + *progress, height, PSPLASH_BAR_COLOR);
+    else
+      psplash_fb_draw_rect (fb, 1, xoff, y, barwidth - overflow, height, PSPLASH_BAR_COLOR);
 
     // use double buffering to avoid flickering due to overlapping rectangles
-    psplash_fb_draw_rect (fb, 1, x, y, width, height, PSPLASH_BAR_BACKGROUND_COLOR);
-    psplash_fb_draw_rect (fb, 1, xoff, y, barwidth, height, PSPLASH_BAR_COLOR);
     psplash_fb_flush_rect (fb, x, y, width, height);
 
-    *progress += 2;
+    *progress += step;
 }
 
 /*
@@ -194,7 +203,7 @@ psplash_main (PSplashFB *fb, int pipe_fd, bool disable_touch, bool infinite_prog
   int            touch_fd = -1;
   // Keep track of current progress so it can be passed to xsplash
   // currently supports infinite progress mode only
-  int            progress = 0;
+  int            progress = INT_MIN;
 
   tv.tv_sec = 0;
   tv.tv_usec = 40000;
@@ -238,7 +247,7 @@ psplash_main (PSplashFB *fb, int pipe_fd, bool disable_touch, bool infinite_prog
 	    FD_SET(pipe_fd,&descriptors);
 
         if (infinite_progress)
-            psplash_draw_infinite_progress(fb, 5, &progress);
+            psplash_draw_infinite_progress(fb, 4, &progress);
 
 	    goto startloop;
 	  }
@@ -310,7 +319,7 @@ main (int argc, char** argv)
 	  continue;
 	}
 
-      if (!strcmp(argv[i],"--infinite-progress"))
+      if (!strcmp(argv[i],"-xp") ||  !strcmp(argv[i],"--infinite-progress"))
       {
         infinite_progress = TRUE;
         continue;
