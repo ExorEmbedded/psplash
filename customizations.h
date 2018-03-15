@@ -37,6 +37,7 @@
 #define AUTEC_VAL       123
 #define JSMART_VAL      124
 #define JSMARTQ_VAL     125
+#define JSMARTTTL_VAL   126
 
 int psplash_draw_custom_splashimage(PSplashFB *fb);
 void UpdateBrightness();
