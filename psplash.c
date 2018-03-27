@@ -294,133 +294,142 @@ psplash_main (PSplashFB *fb, int pipe_fd, bool disable_touch, bool infinite_prog
 int 
 main (int argc, char** argv) 
 {
-  char      *tmpdir;
-  int        pipe_fd, i = 0, angle = 0, ret = 0;
-  PSplashFB *fb;
-  bool       disable_console_switch = FALSE;
-  bool       disable_touch = FALSE;
-  bool       infinite_progress = FALSE;
-  
-  signal(SIGHUP, psplash_exit);
-  signal(SIGINT, psplash_exit);
-  signal(SIGQUIT, psplash_exit);
+    char      *tmpdir;
+    int        pipe_fd, i = 0, angle = 0, ret = 0;
+    PSplashFB *fb;
+    bool       disable_console_switch = FALSE;
+    bool       disable_touch = FALSE;
+    bool       infinite_progress = FALSE;
+    bool       blackscreen = FALSE;
 
-  while (++i < argc)
+    signal(SIGHUP, psplash_exit);
+    signal(SIGINT, psplash_exit);
+    signal(SIGQUIT, psplash_exit);
+
+    while (++i < argc)
     {
-      if (!strcmp(argv[i],"-n") || !strcmp(argv[i],"--no-console-switch"))
+        if (!strcmp(argv[i],"-n") || !strcmp(argv[i],"--no-console-switch"))
         {
-	  disable_console_switch = TRUE;
-	  continue;
-	}
+            disable_console_switch = TRUE;
+            continue;
+        }
 
-      if (!strcmp(argv[i],"-np") || !strcmp(argv[i],"--no-progress-bar"))
+        if (!strcmp(argv[i],"-np") || !strcmp(argv[i],"--no-progress-bar"))
         {
-	  disable_progress_bar = TRUE;
-	  continue;
-	}
+            disable_progress_bar = TRUE;
+            continue;
+        }
 
-      if (!strcmp(argv[i],"-xp") ||  !strcmp(argv[i],"--infinite-progress"))
-      {
-        infinite_progress = TRUE;
-        continue;
-      }
-
-      if (!strcmp(argv[i],"-a") || !strcmp(argv[i],"--angle"))
+        if (!strcmp(argv[i],"-xp") ||  !strcmp(argv[i],"--infinite-progress"))
         {
-	  if (++i >= argc) goto fail;
-	  angle = atoi(argv[i]);
-	  continue;
-	}
-	
-      if (!strcmp(argv[i],"--notouch"))
-      {
-	disable_touch = TRUE;
-	continue;
-      }
+            infinite_progress = TRUE;
+            continue;
+        }
 
- 
-    fail:
-      fprintf(stderr, 
-	      "Usage: %s [-n|--no-console-switch][-a|--angle <0|90|180|270>][--notouch][-np|--no-progress-bar][-xp|--infinite-progress]\n", 
-	      argv[0]);
-      exit(-1);
+        if (!strcmp(argv[i],"-a") || !strcmp(argv[i],"--angle"))
+        {
+            if (++i >= argc) goto fail;
+            angle = atoi(argv[i]);
+            continue;
+        }
+
+        if (!strcmp(argv[i],"--notouch"))
+        {
+            disable_touch = TRUE;
+            continue;
+        }
+
+        if (!strcmp(argv[i],"--blackscreen"))
+        {
+            blackscreen = TRUE;
+            continue;
+        }
+
+fail:
+        fprintf(stderr,
+                "Usage: %s [-n|--no-console-switch][-a|--angle <0|90|180|270>][--notouch][-np|--no-progress-bar][-xp|--infinite-progress]\n",
+                argv[0]);
+        exit(-1);
     }
 
-  tmpdir = getenv("TMPDIR");
+    tmpdir = getenv("TMPDIR");
 
-  if (!tmpdir)
-    tmpdir = "/tmp";
+    if (!tmpdir)
+        tmpdir = "/tmp";
 
-  chdir(tmpdir);
+    chdir(tmpdir);
 
-  if (mkfifo(PSPLASH_FIFO, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP))
+    if (mkfifo(PSPLASH_FIFO, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP))
     {
-      if (errno!=EEXIST) 
-	{
-	  perror("mkfifo");
-	  exit(-1);
-	}
+        if (errno!=EEXIST)
+        {
+            perror("mkfifo");
+            exit(-1);
+        }
     }
 
-  pipe_fd = open (PSPLASH_FIFO,O_RDONLY|O_NONBLOCK);
-  
-  if (pipe_fd==-1) 
+    pipe_fd = open (PSPLASH_FIFO,O_RDONLY|O_NONBLOCK);
+
+    if (pipe_fd==-1)
     {
-      perror("pipe open");
-      exit(-2);
+        perror("pipe open");
+        exit(-2);
     }
 
-  if (!disable_console_switch)
-    psplash_console_switch ();
+    if (!disable_console_switch)
+        psplash_console_switch ();
 
-  if ((fb = psplash_fb_new(angle)) == NULL) {
-	  ret = -1;
-	  goto fb_fail;
-  }
-  
-  /* Set the font size, based on the display resolution and screen orientation */
-  if(fb->width < USESMALLFONT_TH)
-    FONT_SCALE = 0; // Small fonts (scale = 1x)
-  else
-    FONT_SCALE = 1; // large fonts (scale = 2x)
-    
-  /* Clear the background with #ecece1 */
-  psplash_fb_draw_rect (fb, 0, 0, 0, fb->width, fb->height,
-                        PSPLASH_BACKGROUND_COLOR);
-			
-  if(-1 == psplash_draw_custom_splashimage(fb))
-  {
+    if ((fb = psplash_fb_new(angle)) == NULL) {
+        ret = -1;
+        goto fb_fail;
+    }
 
-  /* Draw the Poky logo  */
-  psplash_fb_draw_image (fb, 0, 
-			 (fb->width  - POKY_IMG_WIDTH)/2, 
-			 ((fb->height * 5) / 6 - POKY_IMG_HEIGHT)/2,
-			 POKY_IMG_WIDTH,
-			 POKY_IMG_HEIGHT,
-			 POKY_IMG_BYTES_PER_PIXEL,
-			 POKY_IMG_RLE_PIXEL_DATA);
-  }
+    /* Set the font size, based on the display resolution and screen orientation */
+    if(fb->width < USESMALLFONT_TH)
+        FONT_SCALE = 0; // Small fonts (scale = 1x)
+    else
+        FONT_SCALE = 1; // large fonts (scale = 2x)
 
-  if (!infinite_progress)
-    psplash_draw_progress (fb, 0);
+    if(!blackscreen)
+    {
+        /* Clear the background with #ecece1 */
+        psplash_fb_draw_rect (fb, 0, 0, 0, fb->width, fb->height,
+                              PSPLASH_BACKGROUND_COLOR);
 
-  UpdateBrightness();
+        if(-1 == psplash_draw_custom_splashimage(fb))
+        {
 
-  psplash_main (fb, pipe_fd, disable_touch, infinite_progress);
+            /* Draw the Poky logo  */
+            psplash_fb_draw_image (fb, 0,
+                                   (fb->width  - POKY_IMG_WIDTH)/2,
+                                   ((fb->height * 5) / 6 - POKY_IMG_HEIGHT)/2,
+                                   POKY_IMG_WIDTH,
+                                   POKY_IMG_HEIGHT,
+                                   POKY_IMG_BYTES_PER_PIXEL,
+                                   POKY_IMG_RLE_PIXEL_DATA);
+        }
 
-  psplash_fb_destroy (fb);
+        if (!infinite_progress)
+            psplash_draw_progress (fb, 0);
+    }
 
-  // Clear the bootcounter
-  setbootcounter(0);
+    UpdateBrightness();
 
- fb_fail:
-  unlink(PSPLASH_FIFO);
+    psplash_main (fb, pipe_fd, disable_touch, infinite_progress);
 
-  if (!disable_console_switch)
-    psplash_console_reset ();
+    psplash_fb_destroy (fb);
 
-  usleep(1000000);
-  UpdateColorMatrix();
+    // Clear the bootcounter
+    setbootcounter(0);
 
-  return ret;
+fb_fail:
+    unlink(PSPLASH_FIFO);
+
+    if (!disable_console_switch)
+        psplash_console_reset ();
+
+    usleep(1000000);
+    UpdateColorMatrix();
+
+    return ret;
 }
