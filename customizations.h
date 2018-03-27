@@ -47,5 +47,6 @@ int Touch_open();
 void TapTap_Progress(PSplashFB *fb, int taptap);
 int TapTap_Detected(int touch_fd, PSplashFB *fb, int laststatus);
 int setbootcounter(unsigned char val);
+int UpdateColorMatrix();
 
 #endif
