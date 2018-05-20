@@ -76,6 +76,9 @@ psplash_draw_msg (PSplashFB *fb, const char *msg)
 void
 psplash_draw_infinite_progress (PSplashFB *fb, int bar_rel_sz, int *progress)
 {
+    if (disable_progress_bar)
+        return;
+
     if (fb == NULL || bar_rel_sz <= 0 || progress == 0)
         return;
 
