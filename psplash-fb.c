@@ -25,6 +25,9 @@ psplash_fb_destroy (PSplashFB *fb)
   if (fb->fd >= 0)
     close (fb->fd);
 
+  if (fb->data_buf)
+    free (fb->data_buf);
+
   free(fb);
 }
 
@@ -214,6 +217,9 @@ psplash_fb_new (int angle)
 
   fb->data = fb->base + off;
 
+  // temporary region which can be flushed via psplash_fb_flush_rect
+  fb->data_buf = (char *) calloc(fb->stride * fb->height, sizeof(char));
+
 #if 0
   /* FIXME: No support for 8pp as yet  */
   if (visual == FB_VISUAL_PSEUDOCOLOR
@@ -261,10 +267,29 @@ psplash_fb_new (int angle)
   return NULL;
 }
 
-#define OFFSET(fb,x,y) (((y) * (fb)->stride) + ((x) * ((fb)->bpp >> 3)))
+#define _PSPLASH_OFFSET(fb,x,y) (((y) * (fb)->stride) + ((x) * ((fb)->bpp >> 3)))
+
+int psplash_offset (PSplashFB    *fb,
+                int         x,
+                int         y)
+{
+  switch (fb->angle)
+    {
+    case 270:
+      return _PSPLASH_OFFSET (fb, fb->height - y - 1, x);
+    case 180:
+      return _PSPLASH_OFFSET (fb, fb->width - x - 1, fb->height - y - 1);
+    case 90:
+      return _PSPLASH_OFFSET (fb, y, fb->width - x - 1);
+    case 0:
+    default:
+      return _PSPLASH_OFFSET (fb, x, y);
+    }
+}
 
 void
 psplash_fb_plot_pixel (PSplashFB    *fb,
+		       int          buffered,
 		       int          x,
 		       int          y,
 		       uint8        red,
@@ -272,38 +297,24 @@ psplash_fb_plot_pixel (PSplashFB    *fb,
 		       uint8        blue)
 {
   int off;
+  char *data = (buffered ? fb->data_buf : fb->data);
 
   if (x < 0 || x > fb->width-1 || y < 0 || y > fb->height-1)
     return;
 
-  switch (fb->angle)
-    {
-    case 270:
-      off = OFFSET (fb, fb->height - y - 1, x);
-      break;
-    case 180:
-      off = OFFSET (fb, fb->width - x - 1, fb->height - y - 1);
-      break;
-    case 90:
-      off = OFFSET (fb, y, fb->width - x - 1);
-      break;
-    case 0:
-    default:
-      off = OFFSET (fb, x, y);
-      break;
-    }
+  off = psplash_offset(fb, x, y);
 
   if (fb->rgbmode == RGB565 || fb->rgbmode == RGB888) {
     switch (fb->bpp)
       {
       case 24:
       case 32:
-        *(fb->data + off)     = blue;
-        *(fb->data + off + 1) = green;
-        *(fb->data + off + 2) = red;
+        *(data + off)     = blue;
+        *(data + off + 1) = green;
+        *(data + off + 2) = red;
         break;
       case 16:
-        *(volatile uint16_t *) (fb->data + off)
+        *(volatile uint16_t *) (data + off)
 	  = ((red >> 3) << 11) | ((green >> 2) << 5) | (blue >> 3);
         break;
       default:
@@ -315,12 +326,12 @@ psplash_fb_plot_pixel (PSplashFB    *fb,
       {
       case 24:
       case 32:
-        *(fb->data + off)     = red;
-        *(fb->data + off + 1) = green;
-        *(fb->data + off + 2) = blue;
+        *(data + off)     = red;
+        *(data + off + 1) = green;
+        *(data + off + 2) = blue;
         break;
       case 16:
-        *(volatile uint16_t *) (fb->data + off)
+        *(volatile uint16_t *) (data + off)
 	  = ((blue >> 3) << 11) | ((green >> 2) << 5) | (red >> 3);
         break;
       default:
@@ -331,13 +342,13 @@ psplash_fb_plot_pixel (PSplashFB    *fb,
     switch (fb->bpp)
       {
       case 32:
-        *(volatile uint32_t *) (fb->data + off)
+        *(volatile uint32_t *) (data + off)
 	  = ((red >> (8 - fb->red_length)) << fb->red_offset) 
 	      | ((green >> (8 - fb->green_length)) << fb->green_offset)
 	      | ((blue >> (8 - fb->blue_length)) << fb->blue_offset);
         break;
       case 16:
-        *(volatile uint16_t *) (fb->data + off)
+        *(volatile uint16_t *) (data + off)
 	  = ((red >> (8 - fb->red_length)) << fb->red_offset) 
 	      | ((green >> (8 - fb->green_length)) << fb->green_offset)
 	      | ((blue >> (8 - fb->blue_length)) << fb->blue_offset);
@@ -351,6 +362,7 @@ psplash_fb_plot_pixel (PSplashFB    *fb,
 
 void
 psplash_fb_draw_rect (PSplashFB    *fb,
+		      int          buffered,
 		      int          x,
 		      int          y,
 		      int          width,
@@ -363,11 +375,12 @@ psplash_fb_draw_rect (PSplashFB    *fb,
 
   for (dy=0; dy < height; dy++)
     for (dx=0; dx < width; dx++)
-	psplash_fb_plot_pixel (fb, x+dx, y+dy, red, green, blue);
+      psplash_fb_plot_pixel (fb, buffered, x+dx, y+dy, red, green, blue);
 }
 
 void
 psplash_fb_draw_image (PSplashFB    *fb,
+		       int          buffered,
 		       int          x,
 		       int          y,
 		       int          img_width,
@@ -395,7 +408,7 @@ psplash_fb_draw_image (PSplashFB    *fb,
 	  do
 	    {
 	      if (img_bytes_per_pixel < 4 || *(p+3))
-	        psplash_fb_plot_pixel (fb, x+dx, y+dy, *(p), *(p+1), *(p+2));
+	        psplash_fb_plot_pixel (fb, buffered, x+dx, y+dy, *(p), *(p+1), *(p+2));
 	      if (++dx >= img_width) { dx=0; dy++; }
 	    }
 	  while (--len && (p - rle_data) < total_len);
@@ -409,7 +422,7 @@ psplash_fb_draw_image (PSplashFB    *fb,
 	  do
 	    {
 	      if (img_bytes_per_pixel < 4 || *(p+3))
-	        psplash_fb_plot_pixel (fb, x+dx, y+dy, *(p), *(p+1), *(p+2));
+	        psplash_fb_plot_pixel (fb, buffered, x+dx, y+dy, *(p), *(p+1), *(p+2));
 	      if (++dx >= img_width) { dx=0; dy++; }
 	      p += img_bytes_per_pixel;
 	    }
@@ -479,6 +492,7 @@ psplash_fb_text_size (PSplashFB          *fb,
 
 void
 psplash_fb_draw_text (PSplashFB         *fb,
+		      int                buffered,
 		      int                x,
 		      int                y,
 		      uint8              red,
@@ -540,7 +554,7 @@ psplash_fb_draw_text (PSplashFB         *fb,
 	  for (cx = 0; cx < w; cx++)
 	    {
 	      if (g & 0x80000000)
-		psplash_fb_plot_pixel (fb, x+dx+cx, y+dy+cy, txtred, txtgreen, txtblue);
+		psplash_fb_plot_pixel (fb, buffered, x+dx+cx, y+dy+cy, txtred, txtgreen, txtblue);
 	      if(((cx+1) >> FONT_SCALE) > (cx >> FONT_SCALE))
 		g <<= 1;
 	    }
@@ -550,3 +564,21 @@ psplash_fb_draw_text (PSplashFB         *fb,
     }
 }
 
+void
+psplash_fb_flush_rect (PSplashFB    *fb,
+		       int          x,
+		       int          y,
+		       int          width,
+		       int          height)
+{
+  int dx, dy, off;
+
+  for (dy=0; dy < height; dy++)
+    for (dx=0; dx < width; dx++)
+      {
+        off = psplash_offset(fb, x+dx, y+dy);
+
+        // copy internal buffer to fb
+        memcpy(fb->data + off, fb->data_buf + off, fb->bpp / 8);
+      }
+}
