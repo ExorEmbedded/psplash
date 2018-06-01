@@ -24,4 +24,7 @@ psplash_console_switch (void);
 void
 psplash_console_reset (void);
 
+bool
+vt_requested (void);
+
 #endif
