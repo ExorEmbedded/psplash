@@ -29,7 +29,6 @@
 
 // Global variable indicating the font scale factor: 0=>1x 1=>2x 2=>4x
 int FONT_SCALE;
-
 bool disable_progress_bar = FALSE;
 
 void

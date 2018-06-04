@@ -40,7 +40,6 @@
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/types.h>
-#include <termios.h>
 #include <unistd.h>
 
 typedef uint8_t  uint8;
