@@ -18,8 +18,8 @@
 
 
 #include <stdio.h>
-#include <string.h>
 
+#include "common.h"
 #include "psplash.h"
 #include "psplash-fb.h"
 #include "customizations.h"
@@ -30,8 +30,6 @@
 #include "configos-img.h"
 #include "calib-img.h"
 #include <math.h>
-
-#define MAXPATHLENGTH 200
 
 #define SPLASH_HDRLEN         56
 #define SPLASH_STRIDE_IDX     0
@@ -48,12 +46,12 @@
 #define I2CSEEPROMDEVICE                 "/sys/class/i2c-dev/"SEEPROM_I2C_BUS"/device/"SEEPROM_I2C_ADDRESS"/eeprom"
 #define BLDIMM_POS                       128
 
-#define CMDLINEPATH                      "/proc/"
 #define DEFAULT_TOUCH_EVENT0             "/dev/input/event0"
 #define DEFAULT_TOUCH_EVENT1             "/dev/input/event1"
 #define DEFAULT_TOUCH_EVENT2             "/dev/input/event2"
 
 #define SYSPARAMS_CMD                    "/usr/bin/sys_params "
+
 
 /***********************************************************************************************************
  STATIC HELPER FUNCTIONS
@@ -143,50 +141,6 @@ static int SyncJMLauncher(char* msg)
 }
 
 
-//Helper function for writing a parameter to sysfs
-static int sysfs_write(char* pathto, char* fname, char* value)
-{
-  char str[MAXPATHLENGTH];
-  FILE* fp;
-  
-  strncpy(str,pathto,MAXPATHLENGTH);
-  strncat(str,fname,MAXPATHLENGTH);
-  
-  if((fp = fopen(str, "ab"))==NULL)
-  {
-    fprintf(stderr,"Cannot open sysfs file -> %s \n",str);
-    return -1;
-  }
-  
-  rewind(fp);
-  fwrite(value,1,strlen(value),fp);
-  fclose(fp);
-  return 0;
-}
-
-
-//Helper function for reading a parameter from sysfs
-static int sysfs_read(char* pathto, char* fname, char* value, int n)
-{
-  char str[MAXPATHLENGTH];
-  FILE* fp;
-  
-  strncpy(str,pathto,MAXPATHLENGTH);
-  strncat(str,fname,MAXPATHLENGTH);
-  
-  if((fp = fopen(str, "rb"))==NULL)
-  {
-    fprintf(stderr,"Cannot open sysfs file -> %s \n",str);
-    return -1;
-  }
-  
-  rewind(fp);
-  fread (value, 1, n, fp);
-  fclose(fp);
-  return 0;
-}
-
-
 //Helper function to execute a shell command (specified as string) and return 0 if command succeeds, -1 if failed
 static int systemcmd(const char* cmd)
 {
@@ -243,7 +197,6 @@ static int SetBrightness(char* brightnessdevice, int* pval)
   sysfs_write(brightnessdevice,"brightness",strval);
   return 0;
 }
-
 
 /***********************************************************************************************************
  Drawing the custom splashimage from splashimage.bin file
@@ -633,7 +586,6 @@ void UpdateBrightness()
   SetBrightness(brightnessdevice, &target_brightness);
 }
 
-
 /***********************************************************************************************************
  Opening the touchscreen event for reading.
 
@@ -649,9 +601,6 @@ int Touch_open()
 {
   int touch_fd = -1;
   char *tsdevice = NULL;
-  char cmdline[MAXPATHLENGTH];
-  char * pch;
-  int hw_code = -1;
 
   if( (tsdevice = getenv("TSDEVICE")) != NULL ) 
   {
@@ -659,11 +608,7 @@ int Touch_open()
   } 
   else 
   {
-    memset(cmdline, 0, MAXPATHLENGTH);
-    sysfs_read(CMDLINEPATH,"cmdline",cmdline,MAXPATHLENGTH-1);
-
-    pch = strstr(cmdline, "hw_code=") + strlen("hw_code=");
-    sscanf (pch,"%d %*s", &hw_code);
+    int hw_code = gethwcode();
 
     switch( hw_code )
     {
