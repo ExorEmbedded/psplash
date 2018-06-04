@@ -18,6 +18,9 @@
 #ifndef _HAVE_PSPLASH_FB_H
 #define _HAVE_PSPLASH_FB_H
 
+#include <termios.h>
+#include "psplash.h"
+
 enum RGBMode {
     RGB565,
     BGR565,
