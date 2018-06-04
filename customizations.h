@@ -19,26 +19,13 @@
 #ifndef _HAVE_CUSTOMIZATIONS_H
 #define _HAVE_CUSTOMIZATIONS_H
 
+#include "psplash-fb.h"
+
 #define TAPTAP_THLO 1
 #define TAPTAP_TH   3
 #define USESMALLFONT_TH 500
 
-#define ETOP507_VAL     104
-#define ETOP507G_VAL    105
-#define ECO_VAL         110
-#define PLCM07_VAL      111
-#define BE15A_VAL       114
-#define ETOP7XX_VAL     115
-#define ETOP7XXQ_VAL    118
-#define US03KITQ_VAL    119
-#define ETOP705_VAL     120
-#define WU16_VAL        121
-#define US03WU16_VAL    122
-#define AUTEC_VAL       123
-#define JSMART_VAL      124
-#define JSMARTQ_VAL     125
-#define JSMARTTTL_VAL   126
-
+void Read_HWCode();
 int psplash_draw_custom_splashimage(PSplashFB *fb);
 void UpdateBrightness();
 int Touch_handler(int touch_fd, int* taptap, int* laststatus);
