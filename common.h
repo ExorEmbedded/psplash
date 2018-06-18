@@ -38,6 +38,7 @@
 #define JSMART_VAL      124
 #define JSMARTQ_VAL     125
 #define JSMARTTTL_VAL   126
+#define PGDXCA18_VAL    131
 
 
 #include <stdio.h>
