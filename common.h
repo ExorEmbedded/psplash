@@ -27,9 +27,10 @@
 #define ECO_VAL         110
 #define PLCM07_VAL      111
 #define BE15A_VAL       114
-#define ETOP7XX_VAL     115
+#define EX7XX_VAL       115
+#define ETOP6XXL_VAL    116
 #define PGDXCA16_VAL    117
-#define ETOP7XXQ_VAL    118
+#define EX7XXQ_VAL      118
 #define US03KITQ_VAL    119
 #define ETOP705_VAL     120
 #define WU16_VAL        121
@@ -40,6 +41,13 @@
 #define JSMARTTTL_VAL   126
 #define PGDXCA18_VAL    131
 
+#define IS_US01(X)      X == ECO_VAL || X == PLCM07_VAL || X == PGDXCA16_VAL || X == PGDXCA18_VAL || \
+                        X == ETOP705_VAL || X == WU16_VAL || X == AUTEC_VAL
+
+#define IS_US02(X)      X == ETOP6XXL_VAL
+
+#define IS_US03(X)      X == BE15A_VAL || X == EX7XX_VAL || X == EX7XXQ_VAL || X == US03WU16_VAL || \
+                        X == JSMART_VAL || X == JSMARTQ_VAL || X == JSMARTTTL_VAL
 
 #include <stdio.h>
 

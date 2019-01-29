@@ -52,7 +52,6 @@
 
 #define SYSPARAMS_CMD                    "/usr/bin/sys_params "
 
-
 /***********************************************************************************************************
  STATIC HELPER FUNCTIONS
  ***********************************************************************************************************/
@@ -316,6 +315,76 @@ error:
   return -1;
 }
 
+/*! Apply gamma correction to dim light below physical backlight minimum value */
+
+#define MXCFB_SET_GAMMA	       _IOW('F', 0x28, struct mxcfb_gamma)
+#define MAX_GAMMA_LEVEL        30
+
+struct mxcfb_gamma {
+	int enable;
+	int constk[16];
+	int slopek[16];
+};
+
+/*! level between */
+int applyGammaDimming(int level)
+{
+	int fd_fb = 0;
+	struct mxcfb_gamma fb_gamma;
+	int i, ret=0;
+	int gamma;
+	int constk[16], slopek[16];
+
+  if(level > MAX_GAMMA_LEVEL || level < 0 )
+    level = MAX_GAMMA_LEVEL;
+
+  // Safety trim to allow minimum level
+  if (level < 3)
+    level = 3;
+
+  if ((fd_fb = open("/dev/fb0", O_RDWR, 0)) < 0) {
+    fprintf(stderr, "Unable to open /dev/fb0\n");
+    ret = -1;
+    goto done;
+  }
+
+  gamma = 10;
+  constk[0] = 0;
+  slopek[0] = gamma;
+  for(i=1; i< 16; i++)
+    {
+    if(i>9)
+      gamma += (gamma >> 2);
+
+    constk[i] = constk[i-1] + gamma ;
+    slopek[i] = gamma;
+  }
+
+  for(i=0; i< 16; i++)
+  {
+    constk[i] = (constk[i] * level) / MAX_GAMMA_LEVEL;
+    slopek[i] = (slopek[i] * level) / MAX_GAMMA_LEVEL;
+    fb_gamma.constk[i] = constk[i];
+    fb_gamma.slopek[i] = slopek[i];
+  }
+
+  if(level != MAX_GAMMA_LEVEL)
+    fb_gamma.enable = 1;
+  else
+    fb_gamma.enable = 0;
+
+  if ( ioctl(fd_fb, MXCFB_SET_GAMMA, &fb_gamma) < 0) {
+    fprintf(stderr, "Wrong gamma setting!\n");
+    ret = -1;
+    goto done;
+  }
+
+done:
+  if (fd_fb)
+    close(fd_fb);
+  return ret;
+}
+
 /*
  * Structure used to define a 5*3 matrix of parameters for
  * setting IPU DP CSC module related to this framebuffer.
@@ -533,10 +602,10 @@ void UpdateBrightness()
 {
   int max_brightness;
   int target_brightness;
-  
+
   char strval[5]={0,0,0,0,0};
   char brightnessdevice[MAXPATHLENGTH] = BRIGHTNESSDEVICE;
-  
+
   // Get the full path for accessing the backlight driver: we should have an additonal subdir to be appended to the hardcoded path
   DIR           *d;
   struct dirent *dir;
@@ -554,35 +623,47 @@ void UpdateBrightness()
     }
     closedir(d);
   }
-  
+
   // Read the max_brightness value for the backlight driver and perform sanity check
   sysfs_read(brightnessdevice,"max_brightness",strval,3);
   max_brightness=atoi(strval);
-  
+
   if((max_brightness < 1) || (max_brightness > 255))
     max_brightness = 100;
-  
+
   // Read the target brightness from SEEPROM and perform scaling to suit the dynamic range of the backlight driver
   target_brightness = get_brightness_from_seeprom();
-  
-  target_brightness = 1 + (target_brightness * (max_brightness) - target_brightness / 2) / 255;
-  
+
+  if ( IS_US03(gethwcode()) ) {
+    if (target_brightness < MAX_GAMMA_LEVEL) {
+      // apply gamma correction
+      applyGammaDimming(target_brightness);
+      target_brightness = 1;
+    } else {
+      applyGammaDimming(MAX_GAMMA_LEVEL);
+      target_brightness -= MAX_GAMMA_LEVEL;
+      target_brightness = ceil((target_brightness * max_brightness)/(255.0 - MAX_GAMMA_LEVEL));
+    }
+  } else {
+    target_brightness = ceil((target_brightness * max_brightness)/(255.0));
+  }
+
   if(target_brightness > max_brightness)
     target_brightness = max_brightness;
-  
+
   if(target_brightness < 1)
     target_brightness = 1;
-    
+
   // Transition loop to set the actual brightness value
   int usdelay = 1000000 / target_brightness;
   int i;
-  
+
   for(i=1; i < target_brightness; i++)
   {
     SetBrightness(brightnessdevice, & i);
     usleep(usdelay);
   }
-  
+
   SetBrightness(brightnessdevice, &target_brightness);
 }
 
