@@ -44,6 +44,7 @@
 #include <stdio.h>
 
 int gethwcode();
+int gettouchtype();
 int setbootcounter(unsigned char val);
 
 int sysfs_read(char* pathto, char* fname, char* value, int n);

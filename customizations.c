@@ -602,13 +602,14 @@ int Touch_open()
   int touch_fd = -1;
   char *tsdevice = NULL;
 
-  if( (tsdevice = getenv("TSDEVICE")) != NULL ) 
+  if( (tsdevice = getenv("TSDEVICE")) != NULL )
   {
     touch_fd = open(tsdevice,O_RDONLY | O_NONBLOCK);
-  } 
-  else 
+  }
+  else
   {
     int hw_code = gethwcode();
+    int touch_type = gettouchtype();
 
     switch( hw_code )
     {
@@ -619,11 +620,11 @@ int Touch_open()
 	    break;
 
 	case PGDXCA18_VAL:
-	    /* CA18 could be have 2 types of Touchscreen analog or i2c */
-	    touch_fd = open(DEFAULT_TOUCH_EVENT2,O_RDONLY | O_NONBLOCK);
-	    if( touch_fd < 0 ){
+	    /* CA18 could be have 2 types of Touchscreen analog (touch_type=10) or i2c */
+            if ( touch_type == 10 )
+	        touch_fd = open(DEFAULT_TOUCH_EVENT2,O_RDONLY | O_NONBLOCK);
+	    else
 		touch_fd = open(DEFAULT_TOUCH_EVENT0,O_RDONLY | O_NONBLOCK);
-	    }
 	    break;
 
 	case WU16_VAL:

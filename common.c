@@ -32,6 +32,34 @@ int gethwcode()
   return hw_code;
 }
 
+int gettouchtype()
+{
+  static int touch_type = -1;
+
+  // return cached value if already called
+  if (touch_type != -1)
+      return touch_type;
+
+  int hc = -1;
+  char cmdline[MAXPATHLENGTH];
+
+  memset(cmdline, 0, MAXPATHLENGTH);
+  if (sysfs_read(CMDLINEPATH,"cmdline",cmdline,MAXPATHLENGTH-1))
+    return -1;
+  char * pch;
+
+  pch = strstr(cmdline, "touch_type=") + strlen("touch_type=");
+  if (pch == NULL)
+    return -1;
+  if (sscanf (pch,"%d %*s", &hc) < 1)
+    return -1;
+
+  touch_type = hc;
+  fprintf(stderr, "Detected touch_type: %d\n", touch_type);
+
+  return touch_type;
+}
+
 int setbootcounter(unsigned char val)
 {
   int hw_code = gethwcode();
