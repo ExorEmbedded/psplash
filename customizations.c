@@ -860,6 +860,20 @@ int TapTap_Detected(int touch_fd, PSplashFB *fb, int laststatus)
       }
       usleep(200000);
     }
+    
+    //If the touch calibration was selected and we have a Jsmart, draw message that the touch calibration was done automatically.
+    fprintf(stderr,"Start of new code\n"); //!!!
+    if(laststatus)
+    {
+      int hw_code = gethwcode();
+      printf("laststatus!=0 hw_code=%d\n",hw_code); //!!!
+      if((hw_code == JSMART_VAL) || (hw_code == JSMARTQ_VAL) || (hw_code == JSMARTTTL_VAL))
+      {
+	printf("It is a JSMART panel!\n"); //!!!
+	sprintf(msg, "** ENTERING SYSTEM SETTINGS  %d **\nTOUCHSCREEN CALIBRATION\nAUTOMATICALLY DONE.\n",(int)(0));
+	psplash_draw_msg (fb, msg);
+      }
+    }
     // highlight icon for the selected option
     if(!laststatus)
       Draw_Icon(fb, SETTINGS_IMG_WIDTH, SETTINGS_IMG_HEIGHT, SETTINGS_IMG_RLE_PIXEL_DATA, 0xff, 0xff, 0x00);
