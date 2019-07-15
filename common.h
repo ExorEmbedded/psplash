@@ -40,10 +40,11 @@
 #define JSMARTQ_VAL     125
 #define JSMARTTTL_VAL   126
 #define PGDXCA18_VAL    131
+#define AB19_VAL        140
 #define BE15B_VAL       142
 
 #define IS_US01(X)      X == ECO_VAL || X == PLCM07_VAL || X == PGDXCA16_VAL || X == PGDXCA18_VAL || \
-                        X == ETOP705_VAL || X == WU16_VAL || X == AUTEC_VAL
+                        X == ETOP705_VAL || X == WU16_VAL || X == AUTEC_VAL || X == AB19_VAL
 
 #define IS_US02(X)      X == ETOP6XXL_VAL
 

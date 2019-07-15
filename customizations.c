@@ -698,6 +698,7 @@ int Touch_open()
 	case BE15A_VAL:
 	case BE15B_VAL:
 	case PGDXCA16_VAL:
+	case AB19_VAL:
 	    touch_fd = open(DEFAULT_TOUCH_EVENT0,O_RDONLY | O_NONBLOCK);
 	    break;
 
